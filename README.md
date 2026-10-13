@@ -76,6 +76,22 @@ await mount(container, html, {
 - **Bytes** (an `ArrayBuffer`, a typed array) cross as they are, as an argument or as an answer.
 - The functions run in the app, with the app's network and session. The frame holds only their names.
 
+## The page around a block
+
+One thing is the page's to do, because nothing inside the frame can: close its own `frame-src`. A block's script may set its frame's `location` to an outside address, with whatever the block was lent written in that address. The frame's policy does not cover that; the page's does.
+
+```html
+<meta http-equiv="Content-Security-Policy" content="frame-src 'none'">
+```
+
+That is `PAGE_POLICY`. A frame written with `srcdoc` is not refused by it. An app that shows other frames (a video) lists them instead of `'none'`; what matters is that the list is closed.
+
+Other things a page does for a block, all through `mount`:
+
+- `onLink(href)`: a link was clicked. The frame goes nowhere, so the app decides what opens.
+- `expand(true)`: the block takes the whole container (the screen) for a while, where it is. It scrolls inside itself, is told (`<html data-block-expanded>`), and passes Escape on (`onEscape`).
+- `scale(1.2)`: the reader's text size. The block is zoomed, not loaded again.
+
 ## Libraries
 
 A block names what it needs on its first lines and gets each as a global:

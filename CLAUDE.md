@@ -21,6 +21,7 @@
 ## Rules of this project
 
 - **The sandbox does not loosen.** `sandbox="allow-scripts"` with no `allow-same-origin`, and a policy with `connect-src 'none'` and pictures from `data:` only. A change that lets a block reach the network, the page or storage is the change to refuse. An app that needs something from outside lends it through its host.
+- **The page that shows blocks closes its own `frame-src`** (`PAGE_POLICY` in `policy.js`; `ui/app/index.html` here). The frame's policy cannot stop a script from sending its own frame to an outside address with data in it; only the page around it can. Seen in a browser on 2026-10-13: without it the frame left, with it the browser refused. Potion, Relay and Tags do not have it yet.
 - **Nothing of the app is injected into the frame.** The two sides exchange plain messages. A call that the host did not declare does not exist in the block, and `serve` refuses one that arrives anyway.
 - **No dependency, no build.** The package is plain ESM JavaScript that a browser, Node and a bundler read as it is. That is why the catalogue is a `.js` module and not a `.json` file.
 - **No cache of our own.** Library files come from a public CDN and are kept by it and by the browser. The loader only joins two requests for the same file that are in flight together. An app that wants the fetch to go through its own server passes its own `fetch`.

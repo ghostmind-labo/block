@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
+    <!-- A block's frame is written here (srcdoc) and may never be sent anywhere else: without this, a block's
+         script could set its own location to an outside address, with whatever it knows in that address. -->
+    <meta http-equiv="Content-Security-Policy" content="frame-src 'none'" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>block</title>
   </head>
