@@ -9,4 +9,5 @@ export const CONTRACT = `THE CONTRACT
 ${slotsInWords()}
    The slot's name is on <html data-block-slot="…">, for a block drawn differently in two places.
 5. The ground is the app's, light or dark, and it is not yours to assume. Either inherit it (transparent ground, \`color: inherit\`, \`currentColor\`, translucent greys such as rgba(127,127,127,.25)) or own it (paint a ground of your own and every colour on it). \`prefers-color-scheme\` works; never assume white.
-6. Never leave an empty box: draw something before any animation starts, and write the fallback for what may be missing.`;
+6. Never leave an empty box: draw something before any animation starts, and write the fallback for what may be missing.
+7. The room is a range, not a number, and it changes: a panel is dragged wider, a phone is turned, and the frame gets its real size a moment AFTER the block starts. So lay out with what flows (%, flex, grid, \`clamp()\`, \`min()\`), never with one fixed width, and it must hold at the narrowest and at the widest the slot allows. Whatever a script measures (a canvas, a chart, a 3D renderer) is sized from its parent, with a \`ResizeObserver\` on that parent: not once at the start, and not from \`window\`.`;

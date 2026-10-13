@@ -45,6 +45,7 @@ The tools say what a block may do: `create_block` carries the contract. This ski
 ## Traps
 
 - **Height.** In every slot but `page`, the frame is as tall as the content. `100vh` and `height: 100%` have nothing to refer to there. A chart or a canvas needs a parent with a height in pixels, or it collapses, or grows without end.
+- **The room changes, and it arrives late.** A block starts before its frame has its real size, and the size changes afterwards (a panel dragged wider, a phone turned). A canvas, a chart or a renderer sized once at the start is drawn for the wrong room: the first maze made here filled only the middle of its page. Size it from its parent inside a `ResizeObserver` on that parent, and lay the rest out with `%`, flex, grid and `clamp()`. Check the block at the narrowest and the widest its slot allows: the block's page has a width handle for `panel`.
 - **The ground is not white.** The app may be light or dark. Either inherit (transparent ground, `currentColor`, greys such as `rgba(127,127,127,.25)`), or paint a ground of your own and every colour on it. Read the ink with `getComputedStyle(document.body).color` when a library wants a colour.
 - **`hover` and `card` are looked at, never clicked.** No buttons, no links, no scrolling, nothing that needs the mouse.
 - **`hover` takes the width of what is drawn.** Give the outermost element a width in pixels, or the box is as wide as the slot allows.
