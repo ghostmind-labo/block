@@ -1,0 +1,59 @@
+# block / ui in the k3s cluster (prod, namespace block): the web app (Vite; prod builds at start).
+# Deployed by .github/workflows/deploy.yaml, which replaces IMAGE with the built digest. Dev: k8s/ui.dev.yaml.
+# No secrets, no Vault.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ui
+  namespace: block
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: ui }
+  template:
+    metadata:
+      labels: { app: ui }
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets: [{ name: ghcr }]
+      topologySpreadConstraints:      # the copies on different servers
+        - { maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: { matchLabels: { app: ui } } }
+      containers:
+        - name: ui
+          image: IMAGE
+          env:
+            - { name: APP_ENV, value: prod }
+            - { name: HOME, value: /tmp }                        # npm writes its logs under HOME
+          ports: [{ name: http, containerPort: 5106 }]
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          securityContext:
+            # ui builds at start (vite build && vite preview), so its app folder must be writable
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 1Gi }
+          startupProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 20
+            failureThreshold: 3
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: block-ui
+  namespace: block
+spec:
+  selector: { app: ui }
+  ports: [{ name: http, port: 5106, targetPort: http }]

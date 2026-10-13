@@ -1,0 +1,50 @@
+{
+  "id": "Q4IQpnYanEda",
+  "name": "mcp",
+  "version": "0.1.0",
+  "type": "app",
+  "description": "Remote MCP (Google OAuth) to make and change blocks by AI, plus the API the web app uses",
+  "tags": [
+    "block",
+    "mcp",
+    "api"
+  ],
+  "routines": {
+    "dev": "skaffold dev --no-prune",
+    "dev_keep": "skaffold dev --no-prune --cleanup=false",
+    "start": "skaffold run --no-prune",
+    "delete": "skaffold delete",
+    "test": "bash scripts/test.sh"
+  },
+  "herdr": {
+    "workspaces": [
+      {
+        "label": "block",
+        "tabs": [
+          {
+            "label": "mcp",
+            "prefix": false,
+            "layout": "compact",
+            "compact": {
+              "type": "vertical",
+              "panes": [
+                {
+                  "name": "dev",
+                  "routine": "dev_keep",
+                  "profiles": [
+                    "web"
+                  ],
+                  "description": "MCP + API on :3105 with hot reload (run routine dev), long-running"
+                },
+                {
+                  "name": "execution-shell",
+                  "description": "Free shell for ad-hoc commands"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

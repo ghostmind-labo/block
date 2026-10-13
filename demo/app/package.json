@@ -1,0 +1,8 @@
+{
+  "name": "block-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "node --watch-path=. server.js" },
+  "dependencies": {}
+}

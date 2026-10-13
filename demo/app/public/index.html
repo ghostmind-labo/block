@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>block demo</title>
+<style>
+  :root { --paper: #faf9f6; --ink: #26262a; --muted: #77777c; --line: #dcdbd6; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --paper: #111111; --ink: #e6e6e6; --muted: #8a8a8f; --line: #2a2a2a; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.65 ui-serif, Georgia, serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 72px 20px 160px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 56px; }
+  article h1 { font-size: 34px; line-height: 1.15; margin: 0 0 8px; }
+  article h2 { font-size: 20px; margin: 44px 0 8px; }
+  article p { margin: 0 0 18px; }
+  .lede { color: var(--muted); margin-bottom: 36px; }
+  code { font: 14px ui-monospace, Menlo, monospace; }
+  aside { position: sticky; top: 28px; height: 300px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  aside p { margin: 0; padding: 14px; color: var(--muted); font: 13px ui-sans-serif, system-ui, sans-serif; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; gap: 28px; } aside { position: sticky; top: 0; height: 190px; order: -1; background: var(--paper); z-index: 1; } }
+</style>
+</head>
+<body>
+<main>
+  <article>
+    <h1>A window that is only pixels</h1>
+    <p class="lede">Scroll. The window beside this text is an html block. It knows nothing of this page but one thing the page lends it: how far, and how fast, you scroll.</p>
+    <h2>The block reaches nothing</h2>
+    <p>It runs in a frame that has no network, no storage and no way to read this page. Its document carries a policy that lets it load only itself. That is the same sandbox Potion uses for the blocks in a note and Relay for a dashboard.</p>
+    <p>So whatever a block needs from outside, the app has to lend it. Potion lends its notes. Relay lends the things in the house. This page lends its scroll.</p>
+    <h2>One function, declared by the page</h2>
+    <p>The page says what it lends: <code>defineHost({ name: "page", events: ["scroll"] })</code>. Inside the block that becomes <code>page.on("scroll", …)</code>. A function the page did not declare does not exist in the block.</p>
+    <p>Nothing of the page is injected into the frame. The two sides only exchange plain messages, and the page decides what each one means.</p>
+    <h2>Momentum</h2>
+    <p>The window does not play. It answers. While you read slowly its pixels drift a little. Scroll with intent and they pick up speed. Stop, and they calm down again.</p>
+    <p>Nothing streams and nothing was downloaded for it but a short script: no video, no image.</p>
+    <h2>Half way</h2>
+    <p>You are far enough now that the pixels have somewhere to go. Each one has a place in a shape it has not shown yet.</p>
+    <p>Keep going and they begin to gather. Scroll back up and they let go.</p>
+    <h2>The mark</h2>
+    <p>By this paragraph the window has settled into a mark, and its label says what it has been all along: a piece of marketing, light enough to pass for a texture.</p>
+    <p>The mark, the colours and the label are a few numbers in the block's own file. A different sponsor is a different handful of numbers.</p>
+    <h2>What the app counts</h2>
+    <p>The block cannot call out, so it cannot count anything itself. If someone is to know that a window was shown or that its mark was seen, the app counts it, and only what it chooses to.</p>
+    <p>That is the whole idea: the same sandbox for every app, and each app lending only what it means to lend.</p>
+    <p>The end. Scroll back to the top and watch it come apart.</p>
+  </article>
+  <aside id="window"><p>The window is loading…</p></aside>
+</main>
+<script type="module">
+  import { defineHost } from "/block/index.js";
+  import { mount } from "/block/mount.js";
+
+  // What this page lends a block: its scroll, and nothing else.
+  const page = defineHost({ name: "page", events: ["scroll"] });
+
+  const box = document.getElementById("window");
+  const html = await (await fetch("/window.block.html")).text();
+  box.textContent = "";
+  const block = await mount(box, html, { host: page, mode: "fill", title: "A window of pixels: sponsored" });
+
+  let lastY = scrollY, lastTime = performance.now();
+  const tell = () => {
+    const now = performance.now(), reach = document.documentElement.scrollHeight - innerHeight;
+    const speed = (scrollY - lastY) / Math.max(1, now - lastTime) * 1000; // px per second
+    lastY = scrollY; lastTime = now;
+    block.emit("scroll", { progress: reach > 0 ? Math.min(1, Math.max(0, scrollY / reach)) : 0, speed });
+  };
+  addEventListener("scroll", tell, { passive: true });
+  tell();
+</script>
+</body>
+</html>

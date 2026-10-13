@@ -1,0 +1,56 @@
+{
+  "id": "uaaKbm1wjWf8",
+  "name": "db",
+  "type": "app",
+  "description": "Hasura for block on the shared Postgres (the db project): users and the blocks they keep. Port 5107, console 9775.",
+  "tags": [
+    "block",
+    "hasura",
+    "postgres"
+  ],
+  "routines": {
+    "dev": "skaffold dev --no-prune",
+    "dev_keep": "skaffold dev --no-prune --cleanup=false",
+    "start": "skaffold run --no-prune",
+    "delete": "skaffold delete",
+    "migrate": "varlock run -- bash scripts/migrate.sh",
+    "console": "varlock run -- bash scripts/console.sh",
+    "create_db": "varlock run --include-internal --filter APP_ENV,VAULT_ADDR,VAULT_TOKEN -- bash scripts/create-db.sh dev"
+  },
+  "herdr": {
+    "workspaces": [
+      {
+        "label": "block",
+        "tabs": [
+          {
+            "label": "db",
+            "prefix": false,
+            "layout": "compact",
+            "compact": {
+              "type": "vertical",
+              "panes": [
+                {
+                  "name": "dev",
+                  "routine": "dev_keep",
+                  "description": "Hasura on :5107 (run routine dev_keep: it stays up after Ctrl-C), long-running",
+                  "profiles": [
+                    "web"
+                  ]
+                },
+                {
+                  "name": "console",
+                  "routine": "console",
+                  "description": "Hasura console on :9775 (run routine console); records migrations"
+                },
+                {
+                  "name": "execution-shell",
+                  "description": "ad-hoc commands, e.g. run routine migrate"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

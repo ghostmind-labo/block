@@ -1,0 +1,33 @@
+{
+  "id": "XXZr7VazO4zT",
+  "name": "demo",
+  "version": "0.1.0",
+  "type": "app",
+  "description": "A page that mounts a block and lends it one function of its own, the scroll position: a light animation that builds as the reader scrolls, where a video would have been.",
+  "tags": ["block", "demo"],
+  "routines": {
+    "dev": "bash scripts/dev.sh",
+    "dev_keep": "bash scripts/dev.sh"
+  },
+  "herdr": {
+    "workspaces": [
+      {
+        "label": "block",
+        "tabs": [
+          {
+            "label": "demo",
+            "prefix": false,
+            "layout": "compact",
+            "compact": {
+              "type": "vertical",
+              "panes": [
+                { "name": "dev", "routine": "dev_keep", "description": "The demo page on http://localhost:5105 (run routine dev), long-running" },
+                { "name": "execution-shell", "description": "Free shell for ad-hoc commands" }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

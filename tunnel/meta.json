@@ -1,0 +1,9 @@
+{
+  "id": "tUn9bLk4Qw2Z",
+  "name": "tunnel",
+  "version": "0.1.0",
+  "type": "app",
+  "description": "cloudflared for prod: block.ghostmind.dev, by path to block-mcp:3105 and block-ui:5106. Deployed by GitHub Actions only; dev has no tunnel.",
+  "tags": ["block", "tunnel"],
+  "routines": {}
+}

@@ -1,0 +1,125 @@
+# Deploy one app to the k3s cluster (node-1..3), called by one thin workflow per project.
+#   build   a GitHub-hosted runner builds the image (amd64 + arm64 by default) and pushes it to GHCR, tagged by commit
+#   deploy  the runner joins the tailnet as tag:ci and logs in to the Kubernetes API with this run's own GitHub
+#           OIDC token (audience ghostmind-k3s): the cluster trusts it only for ghostmind-app repos on main, and a
+#           RoleBinding limits it to the project's namespace (start/host/k3s). No kube credential is stored here.
+#           It refreshes the namespace's GHCR pull secret with this run's GITHUB_TOKEN (dies with the job; nodes
+#           then share images with each other), applies the app's k8s file with the image digest, waits for rollout.
+#   cleanup keeps the last 10 image versions in GHCR
+# Secrets the calling repo needs: TS_OAUTH_CLIENT_ID, TS_OAUTH_SECRET.
+name: _deploy-k8s
+on:
+  workflow_call:
+    inputs:
+      project: { type: string, required: true }          # = the namespace
+      app: { type: string, required: true }              # = the Deployment name
+      context: { type: string, required: true }          # docker build context
+      dockerfile: { type: string, default: "" }          # default: <context>/Dockerfile
+      manifest: { type: string, required: true }         # the app's k8s file; image: IMAGE
+      platforms: { type: string, default: "linux/amd64,linux/arm64" }   # arm64 is emulated: slow for big builds
+env:
+  # tailnet names (in the API certificate); the first one that answers is used
+  NODES: "node-1.tail0e3587.ts.net node-2.tail0e3587.ts.net node-3.tail0e3587.ts.net"
+  # the cluster's public CA (not a secret): /var/lib/rancher/k3s/server/tls/server-ca.crt
+  CLUSTER_CA: |
+          -----BEGIN CERTIFICATE-----
+          MIIBdzCCAR2gAwIBAgIBADAKBggqhkjOPQQDAjAjMSEwHwYDVQQDDBhrM3Mtc2Vy
+          dmVyLWNhQDE3OTA5OTQzMTEwHhcNMjYxMDAzMDEyNTExWhcNMzYwOTMwMDEyNTEx
+          WjAjMSEwHwYDVQQDDBhrM3Mtc2VydmVyLWNhQDE3OTA5OTQzMTEwWTATBgcqhkjO
+          PQIBBggqhkjOPQMBBwNCAAREG92OrEey6qsqrMbvMxKmGEIgg7c2w5nIUb/nbTTZ
+          WaG2iP4jyQ4OMs/vlaA+KhKrRLE/RSNIx0k6r417m9xho0IwQDAOBgNVHQ8BAf8E
+          BAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU/8tO7Im1s9iYqunWuUIE
+          nSCMqDcwCgYIKoZIzj0EAwIDSAAwRQIgJ5OpdRsFzEPfwjxe8zgzuEgz48HNkdpm
+          uxPNbmTFzXICIQCMbIvqBKA0X3Qf/LrGGC7/hH0SeNk1Fs/QDk4y8SGAOw==
+          -----END CERTIFICATE-----
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write }
+    outputs:
+      ref: ${{ steps.ref.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile || format('{0}/Dockerfile', inputs.context) }}
+          platforms: ${{ inputs.platforms }}
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/${{ inputs.project }}-${{ inputs.app }}:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          build-args: |
+            APP_ENV=prod
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=${{ inputs.app }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.app }}
+      - id: ref
+        run: echo "ref=ghcr.io/${{ github.repository_owner }}/${{ inputs.project }}-${{ inputs.app }}@${{ steps.push.outputs.digest }}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: read, id-token: write }
+    concurrency:
+      group: deploy-${{ inputs.project }}-${{ inputs.app }}
+      cancel-in-progress: false
+    env:
+      NS: ${{ inputs.project }}
+      APP: ${{ inputs.app }}
+      REF: ${{ needs.build.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Log in to the cluster with this run's OIDC token
+        run: |
+          set -euo pipefail
+          TOKEN=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=ghostmind-k3s" | jq -r .value)
+          echo "::add-mask::$TOKEN"
+          printf '%s' "$CLUSTER_CA" > "$RUNNER_TEMP/ca.crt"
+          for n in $NODES; do
+            # any HTTP answer with a valid certificate means the node is up
+            if curl -s -m 10 --cacert "$RUNNER_TEMP/ca.crt" -o /dev/null "https://$n:6443/version"; then SERVER=$n; break; fi
+          done
+          [ -n "${SERVER:-}" ] || { echo "no node answered"; exit 1; }
+          kubectl config set-cluster ghostmind --server="https://$SERVER:6443" --certificate-authority="$RUNNER_TEMP/ca.crt" --embed-certs
+          kubectl config set-credentials ci --token="$TOKEN"
+          kubectl config set-context ci --cluster=ghostmind --user=ci --namespace="$NS"
+          kubectl config use-context ci
+          kubectl auth whoami
+
+      - name: Refresh the GHCR pull secret (this run's token)
+        run: |
+          kubectl create secret docker-registry ghcr --docker-server=ghcr.io \
+            --docker-username="${{ github.actor }}" --docker-password="${{ secrets.GITHUB_TOKEN }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply and wait for the rollout
+        run: |
+          set -euo pipefail
+          sed "s#image: IMAGE#image: $REF#" "${{ inputs.manifest }}" | kubectl apply -f -
+          kubectl rollout status "deployment/$APP" --timeout=5m
+
+  cleanup:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions: { packages: write }
+    steps:
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ inputs.project }}-${{ inputs.app }}
+          package-type: container
+          min-versions-to-keep: 10

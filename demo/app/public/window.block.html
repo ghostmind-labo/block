@@ -1,0 +1,75 @@
+<!-- A pixel window. It is a texture until the reader has scrolled; then the pixels settle into a mark.
+     The page lends it one thing, its scroll: page.on("scroll", ({ progress, speed }) => …).
+     Everything else (the mark, the colours, the label) is in this file. -->
+<style>
+  html, body { height: 100%; }
+  body { background: transparent; overflow: hidden; font: 11px/1.4 ui-monospace, Menlo, monospace; color: #8a8a8f; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  p { position: absolute; left: 14px; right: 14px; bottom: 10px; margin: 0; display: flex; justify-content: space-between; letter-spacing: .08em; text-transform: uppercase; }
+  b { font-weight: 500; opacity: 0; transition: opacity .8s; }
+  b.on { opacity: 1; }
+</style>
+<canvas></canvas>
+<p><span>Sponsored</span><b>block · made light</b></p>
+<script>
+(() => {
+  const canvas = document.querySelector("canvas"), g = canvas.getContext("2d"), tag = document.querySelector("b");
+  const COLORS = ["#d7322b", "#ee7b30", "#f2c230", "#e86a8e", "#1f4fa3", "#3e8fc9", "#3f9b5b", "#6b4ba1"];
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+  const noise = (n) => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); };
+  const CELL = 9;
+  let dots = [], w = 0, h = 0;
+  // What the page says about the reader's scroll, and what the window makes of it.
+  let progress = 0, energy = 0, gathered = 0, spin = 0, last = 0;
+  page.on("scroll", (scroll) => {
+    progress = scroll.progress;
+    energy = Math.min(1, energy + Math.abs(scroll.speed) * 0.0006);
+  });
+
+  function layout() {
+    const ratio = Math.min(devicePixelRatio || 1, 2);
+    w = canvas.clientWidth; h = canvas.clientHeight;
+    canvas.width = w * ratio; canvas.height = h * ratio; g.setTransform(ratio, 0, 0, ratio, 0, 0);
+    const cols = Math.floor(w / CELL), rows = Math.floor(h / CELL);
+    // The mark is drawn once, off screen, and read back as the cells each pixel ends on.
+    const off = document.createElement("canvas"); off.width = cols; off.height = rows;
+    const o = off.getContext("2d");
+    o.textAlign = "center"; o.textBaseline = "middle";
+    o.font = "700 " + Math.floor(cols / 3.4) + "px ui-sans-serif, system-ui, sans-serif";
+    o.fillText("MARK", cols / 2, rows / 2);
+    const data = o.getImageData(0, 0, cols, rows).data, homes = [];
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (data[(y * cols + x) * 4 + 3] > 110) homes.push([x, y]);
+    dots = [];
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const i = y * cols + x;
+      if (noise(i) > 0.36) continue;
+      const home = homes[Math.floor(noise(i + 9) * homes.length)] || [x, y];
+      dots.push({ x, y, hx: home[0], hy: home[1], c: COLORS[Math.floor(noise(i + 3) * COLORS.length)], s: noise(i + 5) });
+    }
+  }
+
+  function draw(time) {
+    if (canvas.clientWidth !== w || canvas.clientHeight !== h) layout();
+    const dt = Math.min((time - last) / 1000 || 0, 0.05); last = time;
+    // Scrolling feeds the energy, which decays when the reader stops. The mark needs both: far enough down the
+    // page, and enough momentum built on the way. It never snaps: it eases toward where it should be.
+    energy *= Math.exp(-dt / 2.4);
+    spin += dt * (0.25 + energy * 3);
+    const want = Math.min(1, Math.max(0, (progress - 0.45) / 0.35));
+    gathered += (want - gathered) * (1 - Math.exp(-dt / 0.5));
+    const ease = still.matches ? want : gathered * gathered * (3 - 2 * gathered);
+    g.clearRect(0, 0, w, h);
+    for (const d of dots) {
+      const loose = 1 - ease, a = spin + d.s * 40;
+      const x = (d.x + (d.hx - d.x) * ease + Math.sin(a) * (0.4 + energy * 1.6) * loose) * CELL;
+      const y = (d.y + (d.hy - d.y) * ease + Math.cos(a * 0.8) * (0.3 + energy * 1.2) * loose) * CELL;
+      g.globalAlpha = (0.14 + 0.2 * energy + 0.14 * (0.5 + 0.5 * Math.sin(a))) * loose + 0.95 * ease;
+      g.fillStyle = d.c; g.fillRect(x + 1, y + 1, CELL - 2.5, CELL - 2.5);
+    }
+    g.globalAlpha = 1;
+    tag.classList.toggle("on", ease > 0.6);
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+</script>

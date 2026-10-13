@@ -1,0 +1,7 @@
+{
+  "name": "ghostmind-block",
+  "owner": { "name": "Ghostmind" },
+  "plugins": [
+    { "name": "block", "source": "./plugin", "description": "Make html blocks with Claude: charts, small pages, widgets and drawings, each shown in a sandboxed frame." }
+  ]
+}

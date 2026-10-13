@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.DS_Store
+# varlock: only the committed .env.schema exists.
+# A .env.local must never exist (varlock always loads it, whatever the environment).
+.env
+.env.local
+.env.*.local
+# Claude Code: a person's own permissions
+.claude/settings.local.json

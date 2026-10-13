@@ -1,0 +1,33 @@
+{
+  "id": "pIS217rsGTtU",
+  "name": "lib",
+  "version": "0.1.0",
+  "type": "app",
+  "description": "@ghostmind-dev/block: the npm package. Plain ESM JavaScript, no dependency, the same code in a browser, in Node and in a React Native app.",
+  "tags": ["block", "library"],
+  "routines": {
+    "test": "bash scripts/test.sh",
+    "test_watch": "bash scripts/test.sh --watch"
+  },
+  "herdr": {
+    "workspaces": [
+      {
+        "label": "block",
+        "tabs": [
+          {
+            "label": "lib",
+            "prefix": false,
+            "layout": "compact",
+            "compact": {
+              "type": "vertical",
+              "panes": [
+                { "name": "test", "routine": "test_watch", "description": "The package's tests, rerun on every change (run routine test_watch)" },
+                { "name": "execution-shell", "description": "Free shell for ad-hoc commands" }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

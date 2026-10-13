@@ -1,0 +1,55 @@
+{
+  "id": "bZPNXdqCjD41",
+  "name": "block",
+  "version": "0.1.0",
+  "type": "project",
+  "description": "The sandboxed html block shared by the Ghostmind apps, as an npm package, and the app around it: a place to make a block with Claude, look at it in the room it will have, and share it.",
+  "tags": [
+    "library",
+    "html",
+    "sandbox",
+    "mcp"
+  ],
+  "routines": {
+    "herdr_init": "run herdr init block --all",
+    "herdr_attach": "run herdr attach block",
+    "herdr_terminate": "run herdr terminate block",
+    "claude": "claude",
+    "remove": "bash k8s/remove.sh",
+    "prod_init": "bash k8s/prod-init.sh"
+  },
+  "herdr": {
+    "workspaces": [
+      {
+        "label": "block",
+        "tabs": [
+          {
+            "label": "block",
+            "prefix": false,
+            "layout": "compact",
+            "compact": {
+              "type": "single",
+              "panes": [
+                {
+                  "name": "claude",
+                  "routine": "claude",
+                  "description": "Claude Code session for the whole project"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "links": [
+    {
+      "label": "Web (dev)",
+      "url": "http://localhost:5106"
+    },
+    {
+      "label": "DB console",
+      "url": "http://localhost:9775"
+    }
+  ]
+}
