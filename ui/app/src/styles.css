@@ -76,6 +76,15 @@ button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visi
 .stage--light { background: #ffffff; --sketch: rgba(0, 0, 0, 0.09); }
 .stage--dark { background: #17171a; --sketch: rgba(255, 255, 255, 0.1); }
 .frame-host--fill { height: 100%; }
+.frame-box { position: relative; }
+.expand { position: absolute; top: 6px; right: 6px; z-index: 2; padding: 3px 10px; font-size: 12px; background: var(--raised); opacity: 0; transition: opacity .15s; }
+.frame-box:hover .expand, .expand:focus-visible, .frame-box--expanded .expand { opacity: 1; }
+/* Expanded in place: the box covers the screen and the frame inside it is never moved. */
+.frame-box--expanded { position: fixed; inset: 0; z-index: 60; padding: 46px 16px 16px; box-sizing: border-box; }
+.frame-box--expanded.frame-box--light { background: #ffffff; }
+.frame-box--expanded.frame-box--dark { background: #17171a; }
+.frame-box--expanded .frame-host { height: 100%; }
+.frame-box--expanded .expand { position: fixed; top: 10px; right: 14px; }
 .place--page { height: min(72vh, 760px); }
 .place--note { margin: 0 auto; padding: 36px 24px; }
 .lines { display: grid; gap: 11px; margin: 18px 0; }

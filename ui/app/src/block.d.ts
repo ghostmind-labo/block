@@ -32,6 +32,8 @@ declare module "@ghostmind-dev/block/web" {
   export interface Mounted {
     frame: HTMLIFrameElement;
     libraries: Loaded[];
+    /** Shown bigger for a while: the frame takes its container's size and the block scrolls inside itself. */
+    expand(on: boolean): void;
     destroy(): void;
   }
   export function mount(
@@ -44,6 +46,7 @@ declare module "@ghostmind-dev/block/web" {
       scheme?: string;
       style?: string;
       title?: string;
+      onEscape?: () => void;
       onReady?: () => void;
       onError?: (message: string) => void;
       onSize?: (size: { height: number | null; width: number | null }) => void;
