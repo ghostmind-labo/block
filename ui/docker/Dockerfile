@@ -8,8 +8,8 @@ RUN arch=$([ "$TARGETARCH" = "amd64" ] && echo x64 || echo arm64) \
   && curl -fsSL "https://github.com/dmno-dev/varlock/releases/download/varlock%40${VARLOCK_VERSION}/varlock-linux-${arch}.tar.gz" \
      | tar -xz -C /usr/local/bin ./varlock
 
-# Built from the repo root: the image mirrors the repo (/usr/app/lib/app next to /usr/app/ui/app), so the
-# package this app shows, @ghostmind-dev/block, is its source in lib/ and not a published copy.
+# Built from the repo root, and the image mirrors the repo. @ghostmind-dev/block comes from npm like any
+# dependency. lib/ is still copied but nothing here reads it any more.
 WORKDIR /usr/app/ui
 COPY ui/.env.schema ./
 COPY lib/app /usr/app/lib/app

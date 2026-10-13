@@ -8,7 +8,6 @@ const proxy = Object.fromEntries(["/mcp", "/oauth", "/.well-known", "/api"].map(
 
 export default defineConfig({
   plugins: [react()],
-  // lib/ is beside this app, outside its folder: the package is read as source.
   // allowedHosts: the dev tunnel reaches this server under its public name
   server: { proxy, allowedHosts: true, fs: { allow: ["../.."] }, watch: { usePolling: true } },
   preview: { proxy, allowedHosts: true },

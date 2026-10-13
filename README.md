@@ -141,6 +141,6 @@ A dev routine refuses a cluster that has no shared Postgres (`k8s/dev-setup.sh`)
 ## Next
 
 - Before Potion can move onto the package: the parts of its block that are not calls. Its text scale, its expand to full size, its loading count, the click on a link that opens a note, and `potion.mapStyle`, which runs maplibre code inside the frame.
-- Move one app onto the package, Relay first: its frame is the closest to this code.
+- Potion is the first app being moved onto the package (its branch `block-package`): the web app first, then its iOS app. Then tags.city and Relay, web and iOS each.
 - A React component and a React Native one around `mount` and `serve`.
-- Publish to npm once a second app uses it.
+- Raise the version and publish (`npm publish --access public` in `lib/app`) when `lib/` changes, then raise it in `ui`, `mcp` and each app that uses it.

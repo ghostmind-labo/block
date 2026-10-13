@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ghostmind-dev/block": "file:../../lib/app",
+    "@ghostmind-dev/block": "0.2.0",
     "@modelcontextprotocol/node": "^2.1.1",
     "@modelcontextprotocol/server": "^2.3.0",
     "express": "^5.2.1",

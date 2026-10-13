@@ -9,8 +9,8 @@ RUN arch=$([ "$TARGETARCH" = "amd64" ] && echo x64 || echo arm64) \
      | tar -xz -C /usr/local/bin ./varlock \
   && varlock install-plugin @varlock/hashicorp-vault-plugin@2.1.1
 
-# Built from the repo root: the image mirrors the repo (/usr/app/lib/app next to /usr/app/mcp/app), so the
-# package this app is about, @ghostmind-dev/block, is its source in lib/ and not a published copy.
+# Built from the repo root, and the image mirrors the repo. @ghostmind-dev/block comes from npm like any
+# dependency. lib/ is still copied but nothing here reads it any more.
 WORKDIR /usr/app/mcp
 COPY mcp/.env.schema ./
 COPY lib/app /usr/app/lib/app
