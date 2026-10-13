@@ -6,6 +6,7 @@ import { createBlock, deleteBlock, getBlock, getSlots, listBlocks, updateBlock, 
 import { finishSignIn, signedIn, signIn, signOut } from "./auth";
 import { EXAMPLES } from "./examples";
 import { BlockFrame, NO_REPORT, type Report, type Scheme } from "./frame";
+import { highlighted } from "./highlight";
 import { Stage } from "./stage";
 
 const systemScheme = (): Scheme => (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
@@ -56,7 +57,6 @@ function Controls({ slots, slot, onSlot, scheme, onScheme, children }: { slots: 
 function Reported({ report, slot }: { report: Report; slot: SlotInfo }) {
   return (
     <div className="reported">
-      <p className="room">{slot.room}</p>
       {report.size && !slot.fill && (
         <p>
           Shown at {report.size.width ? `${report.size.width} × ` : ""}
@@ -175,6 +175,7 @@ export function BlockPage() {
   const [report, setReport] = useState<Report>(NO_REPORT);
   const [showSource, setShowSource] = useState(false);
   const [copied, setCopied] = useState(false);
+  const code = useMemo(() => (showSource && block ? highlighted(block.source) : null), [showSource, block]);
 
   const change = useMutation({
     mutationFn: (changes: Parameters<typeof updateBlock>[1]) => updateBlock(id, changes),
@@ -230,9 +231,14 @@ export function BlockPage() {
             </button>
           )}
           <span className="spacer" />
-          <button className="quiet" onClick={() => setShowSource(!showSource)}>
-            {showSource ? "Hide source" : "Source"}
-          </button>
+          <div className="tabs" role="tablist" aria-label="What is shown">
+            <button role="tab" aria-selected={!showSource} onClick={() => setShowSource(false)}>
+              Block
+            </button>
+            <button role="tab" aria-selected={showSource} onClick={() => setShowSource(true)}>
+              Code
+            </button>
+          </div>
           <button className="quiet" onClick={() => change.mutate({ shared: !block.shared })}>
             {block.shared ? "Stop sharing" : "Share"}
           </button>
@@ -253,10 +259,13 @@ export function BlockPage() {
             Delete
           </button>
         </Controls>
-        <Stage html={block.source} slot={slot} scheme={scheme} title={block.name} onReport={setReport} />
+        {/* The code takes the block's place. The block stays where it is, unseen, so it keeps its size and what it was doing. */}
+        <div className={`view${showSource ? " view--code" : ""}`}>
+          <Stage html={block.source} slot={slot} scheme={scheme} title={block.name} onReport={setReport} />
+          {showSource && <pre className="source">{code}</pre>}
+        </div>
         <Reported report={report} slot={slot} />
         {change.error && <p className="error">{change.error.message}</p>}
-        {showSource && <pre className="source">{block.source}</pre>}
       </main>
     </Shell>
   );
