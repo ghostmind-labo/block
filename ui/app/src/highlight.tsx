@@ -5,7 +5,8 @@ import type { ReactNode } from "react";
 const KINDS = [
   ["comment", /<!--[\s\S]*?-->|\/\*[\s\S]*?\*\/|(?<![:\\])\/\/[^\n]*/],
   ["string", /"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`/],
-  ["tag", /(?<=^|[\s>])<\/?[a-zA-Z][\w-]*/],
+  // an opening tag only after a space or another tag, so that `a<b` in a script is left alone; a closing one anywhere
+  ["tag", /(?<=^|[\s>])<[a-zA-Z][\w-]*|<\/[a-zA-Z][\w-]*/],
   ["keyword", /\b(?:const|let|var|function|return|if|else|for|while|of|in|new|class|async|await|true|false|null|undefined|this|typeof|break|continue|switch|case|default|try|catch|throw)\b/],
   ["number", /#[0-9a-fA-F]{3,8}\b|(?<![\w.])\d*\.?\d+(?:px|em|rem|vh|vw|ms|s|%)?(?!\w)/],
 ] as const;
