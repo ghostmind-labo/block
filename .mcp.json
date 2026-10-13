@@ -2,7 +2,7 @@
   "mcpServers": {
     "block-dev": {
       "type": "http",
-      "url": "http://localhost:5106/mcp"
+      "url": "https://block.ghostmind.app/mcp"
     }
   }
 }

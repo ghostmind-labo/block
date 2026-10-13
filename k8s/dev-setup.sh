@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs before every app's `skaffold dev` deploy (each <app>/skaffold.yaml hook), on a dev cluster only.
 #  - the namespace block (shared by every app, so no app's files own it)
+#  - the volume tunnel-creds (the dev tunnel's credentials), kept across runs
 #  - the Secret vault-dev: a 12h Vault token with the dev-session policy (dev paths only, never .../prod),
 #    made from your shell's token; every app reads Vault with it in dev; it expires on its own
 set -euo pipefail
@@ -12,6 +13,12 @@ K=(kubectl --context "${SKAFFOLD_KUBE_CONTEXT:?run through skaffold}")
 "${K[@]}" -n db get service db-postgres >/dev/null 2>&1 || {
   echo "dev-setup: the cluster of context $SKAFFOLD_KUBE_CONTEXT has no shared Postgres (db/db-postgres), so it is not the dev cluster. Switch the kube and docker contexts to the dev machine's pair (README, Run) and start again" >&2; exit 1; }
 "${K[@]}" create namespace block --dry-run=client -o yaml | "${K[@]}" apply -f - >/dev/null
+"${K[@]}" apply -f - >/dev/null <<YAML
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: tunnel-creds, namespace: block }
+spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 16Mi } } }
+YAML
 # reuse a token that still has more than an hour left, so starting several apps doesn't mint one each
 if T=$("${K[@]}" -n block get secret vault-dev -o jsonpath='{.data.VAULT_TOKEN}' 2>/dev/null | base64 -d) && [ -n "$T" ] \
    && [ "$(VAULT_TOKEN=$T vault token lookup -format=json 2>/dev/null | jq -r '.data.ttl // 0')" -gt 3600 ]; then

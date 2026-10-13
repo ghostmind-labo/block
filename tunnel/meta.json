@@ -3,11 +3,17 @@
   "name": "tunnel",
   "version": "0.1.0",
   "type": "app",
-  "description": "cloudflared for prod: block.ghostmind.dev, by path to block-mcp:3105 and block-ui:5106. Deployed by GitHub Actions only; dev has no tunnel.",
-  "tags": ["block", "tunnel"],
+  "description": "cloudflared: block.ghostmind.app (dev) and block.ghostmind.dev (prod), by path to block-mcp:3105 and block-ui:5106.",
+  "tags": [
+    "block",
+    "tunnel"
+  ],
   "routines": {
-    "logs": "kubectl --context ghostmind -n block logs deploy/tunnel --all-pods --prefix --tail=40 -f",
-    "status": "kubectl --context ghostmind -n block get pods -o wide"
+    "dev": "skaffold dev --no-prune",
+    "dev_keep": "skaffold dev --no-prune --cleanup=false",
+    "start": "skaffold run --no-prune",
+    "delete": "skaffold delete",
+    "prod_logs": "kubectl --context ghostmind -n block logs deploy/tunnel --all-pods --prefix --tail=40 -f"
   },
   "herdr": {
     "workspaces": [
@@ -22,9 +28,12 @@
               "type": "vertical",
               "panes": [
                 {
-                  "name": "logs",
-                  "routine": "logs",
-                  "description": "The prod tunnel's logs, read only (run routine logs). There is no dev tunnel: in dev the web app on localhost:5106 is the one host"
+                  "name": "tunnel",
+                  "routine": "dev_keep",
+                  "profiles": [
+                    "web"
+                  ],
+                  "description": "The dev tunnel, https://block.ghostmind.app, and its logs (run routine dev_keep: it stays up after Ctrl-C), long-running"
                 },
                 {
                   "name": "execution-shell",

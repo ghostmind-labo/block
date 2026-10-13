@@ -7,10 +7,10 @@ A block is html written by a person or a model. It is shown in a frame that reac
 | Folder | What it is |
 |---|---|
 | `lib/` | `@ghostmind-dev/block`, the npm package. Plain ESM JavaScript, no dependency |
-| `ui/` | The web app: a person's blocks, each shown in the slot it was written for, and a page to try one without keeping it (http://localhost:5106) |
+| `ui/` | The web app: a person's blocks, each shown in the slot it was written for, and a page to try one without keeping it (https://block.ghostmind.app in dev) |
 | `mcp/` | The remote MCP (Google sign-in) that makes and changes blocks, and the API the web app reads |
 | `db/` | Hasura on the shared Postgres: one row per block |
-| `tunnel/` | cloudflared for prod: `block.ghostmind.dev`, by path to the mcp and the web app. Dev has no tunnel |
+| `tunnel/` | cloudflared: `block.ghostmind.app` (dev) and `block.ghostmind.dev` (prod), by path to the mcp and the web app |
 | `plugin/` | The Claude plugin: the prod MCP and the skill that teaches writing a block |
 | `demo/` | A page with no build that mounts one block and lends it its scroll (http://localhost:5105) |
 
@@ -72,11 +72,13 @@ Dev runs on the current kube context. The shared Postgres and the users service 
 ```sh
 run routine test      # in lib/: the package's tests
 run routine start     # in db/: Hasura; then `run routine migrate`
-run routine dev       # in mcp/ and in ui/: http://localhost:5106 is the one host (it sends /mcp, /oauth and /api to the mcp)
+run routine dev       # in mcp/, ui/ and tunnel/: https://block.ghostmind.app is the one host (the tunnel sends /mcp, /oauth and /api to the mcp)
 run routine dev       # in demo/: the page on http://localhost:5105
 ```
 
-Claude Code reaches the dev MCP at `http://localhost:5106/mcp`: a session opened in this repo has it as `block-dev` (`.mcp.json`). The plugin's MCP is the prod one.
+The web app is also on http://localhost:5106, and sign-in works from there too (Google sends people back through the tunnel, so the tunnel has to be up).
+
+Claude Code reaches the dev MCP at `https://block.ghostmind.app/mcp`: a session opened in this repo has it as `block-dev` (`.mcp.json`). The plugin's MCP is the prod one.
 
 A dev routine refuses a cluster that has no shared Postgres (`k8s/dev-setup.sh`), so nothing is deployed to a laptop's own cluster by mistake.
 

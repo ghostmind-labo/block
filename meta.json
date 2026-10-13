@@ -45,7 +45,11 @@
   "links": [
     {
       "label": "Web (dev)",
-      "url": "http://localhost:5106"
+      "url": "https://block.ghostmind.app"
+    },
+    {
+      "label": "Web (prod)",
+      "url": "https://block.ghostmind.dev"
     },
     {
       "label": "DB console",

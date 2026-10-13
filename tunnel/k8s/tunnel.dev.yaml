@@ -1,0 +1,34 @@
+# block / tunnel on the dev cluster (`skaffold dev` in tunnel/, routine dev): the dev tunnel block-dev,
+# https://block.ghostmind.app -> block-mcp:3105 and block-ui:5106, by path (config/ingress.dev.yaml). Vault: a short-lived dev-session token (dev paths only,
+# never prod) that k8s/dev-setup.sh puts in the Secret vault-dev before each deploy.
+# The tunnel's credentials JSON (created by the ghostmind.app certificate) lives on the volume tunnel-creds, made by
+# dev-setup.sh and kept across runs (Ctrl-C removes only what this file deploys).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tunnel
+  namespace: block
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: tunnel }
+  template:
+    metadata:
+      labels: { app: tunnel }
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: tunnel
+          image: block-tunnel
+          env:
+            - { name: APP_ENV, value: dev }
+            - name: VAULT_ADDR
+              valueFrom: { secretKeyRef: { name: vault-dev, key: VAULT_ADDR } }
+            - name: VAULT_TOKEN
+              valueFrom: { secretKeyRef: { name: vault-dev, key: VAULT_TOKEN } }
+          volumeMounts:
+            - { name: creds, mountPath: /root/.cloudflared }
+      volumes:
+        - name: creds
+          persistentVolumeClaim: { claimName: tunnel-creds }

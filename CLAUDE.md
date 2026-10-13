@@ -14,8 +14,8 @@
 - `demo/app`: a page with no build and no dependency; it imports the package's source from `/block/`
 - `mcp/app/src/blocks`: this app's slots (`slots.ts`), the contract given to the model (`contract.ts`), the check that brings a block's libraries before it is saved (`check.ts`). `mcp/app/src/auth` and `db/hasura.ts` are format's, unchanged
 - `ui/app/src/frame.tsx`: the one place the web app calls `mount`. `stage.tsx` draws the place around each slot
-- `tunnel`: cloudflared for prod only. In dev the web app's dev server on localhost:5106 is the one host
-- `.mcp.json`: the dev MCP (`block-dev`, localhost:5106) for a Claude session in this repo. `plugin/.mcp.json` is the prod one
+- `tunnel`: cloudflared, the one public host in dev (`block.ghostmind.app`) and in prod (`block.ghostmind.dev`). It sends `/mcp`, `/oauth`, `/.well-known` and `/api` to the mcp and the rest to the web app
+- `.mcp.json`: the dev MCP (`block-dev`, block.ghostmind.app) for a Claude session in this repo. `plugin/.mcp.json` is the prod one
 - `mcp` and `ui` read the package as a `file:` dependency and build from the repo root (their Dockerfiles copy `lib/app`)
 
 ## Rules of this project
@@ -33,4 +33,4 @@
 
 ## Check
 
-`run routine test` in `lib/` and in `mcp/` must pass. The tests join the frame's script and the app's side without a browser (`node:vm`), so a change to the messages is caught there. A change to `mount.js` or to the document is checked in a browser, on the web app's try page (http://localhost:5106/try): its examples cover three.js, a chart and every slot. Look at the page itself: a frame in a tab that is not showing has no size and reports none.
+`run routine test` in `lib/` and in `mcp/` must pass. The tests join the frame's script and the app's side without a browser (`node:vm`), so a change to the messages is caught there. A change to `mount.js` or to the document is checked in a browser, on the web app's try page (https://block.ghostmind.app/try, or http://localhost:5106/try): its examples cover three.js, a chart and every slot. Look at the page itself: a frame in a tab that is not showing has no size and reports none.
