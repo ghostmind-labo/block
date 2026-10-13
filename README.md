@@ -158,11 +158,23 @@ A dev routine refuses a cluster that has no shared Postgres (`k8s/dev-setup.sh`)
 - The package brings any npm library, keeps a block in a slot and reports what a block threw. Its tests pass, and the web app shows three.js, a chart and each slot in a browser.
 - `db`, `mcp` and `ui` run on the dev cluster. The product's Google sign-in client (project `ghostmind-core`, client `block`) is in Vault at `ghostmind/project/block/auth`.
 - Prod is `https://block.ghostmind.dev`, deployed by a merge to main (`.github/workflows/deploy.yaml`): only the apps a merge changed, or everything on a run started by hand. `run routine prod_init` set up the namespace, the Vault roles and the tunnel; run it again when an app or a prod secret path is added.
-- The three apps still run their own copy of the block; nothing has been replaced yet.
+- Potion, tags.city and Relay all show their blocks through this package, on the web and in their iOS apps (2026-10-13). Where each app's own side is:
+
+  | App | Web | iOS | Version it pins |
+  |---|---|---|---|
+  | block | `ui/app/src/frame.tsx` (`mount`) | none yet | 0.2.0 |
+  | Potion | `ui/app/src/lib/potion-block.ts`, `components/HtmlBlockRenderer.tsx`, `MarkdownPreview.tsx` (the feed card) | `native/app/components/elements/HtmlBlock.tsx` | web 0.2.0, iOS 0.3.1 |
+  | tags.city | `shared/pure/layout-frame.ts`, `city/app/src/components/layouts/LayoutFrame.tsx`, `app/map/hover-layout.ts` | `native/app/components/elements/LayoutView` | 0.3.1 |
+  | Relay | `api/app/src/ui/frame.js`, `dashboards.js` (the package is served to the page from `/ui/block@<version>/`) | `native/app/utils/block.ts`, `app/dashboard/[id].tsx` | 0.3.1 |
+
+- Potion and Relay still bring libraries from their own catalogue and vendor route, not from `makeLoader`; tags.city uses `makeLoader`.
 
 ## Next
 
-- Before Potion can move onto the package: the parts of its block that are not calls. Its text scale, its expand to full size, its loading count, the click on a link that opens a note, and `potion.mapStyle`, which runs maplibre code inside the frame.
-- Potion is the first app being moved onto the package (its branch `block-package`): the web app first, then its iOS app. Then tags.city and Relay, web and iOS each.
-- A React component and a React Native one around `mount` and `serve`.
+- An iOS app for block itself.
+- tags.city: the contract its MCP and its in-app AI give for a layout (`shared/pure/layout.ts`) does not say that a layout may name libraries (`tags:use`), and there is no tool that lists them.
+- Pictures and video from outside a block: an app-owned list of media hosts in the policy, and web pictures brought by the app (tags.city already does the second with `tags.image`).
+- One catalogue: Potion and Relay reading this package's loader and catalogue in place of their own.
+- A search in `list_libraries` (the npm registry), so a model does not have to guess a package's name.
+- A React component and a React Native one around `mount` and `serve`: the three apps each wrote the same few lines.
 - Raise the version and publish (`npm publish --access public` in `lib/app`) when `lib/` changes, then raise it in `ui`, `mcp` and each app that uses it.

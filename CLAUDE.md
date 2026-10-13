@@ -29,8 +29,8 @@
 - **The catalogue is not a gate.** Any npm package may be named; what keeps a block in is the frame. Do not add a check that refuses a name because it is not in the catalogue.
 - **A library reaches the block as a global, never by `import`.** A frame cannot import from an address, and letting it (a `blob:` or `data:` source for scripts) is a change to the policy: `classicOf` in `libraries.js` is the way.
 - **A size is said once.** A slot's numbers live in its definition; the page and the tool descriptions both read them from there.
-- **The apps keep their own block until they are moved, one at a time.** Potion (`ui/app/src/components/HtmlBlockRenderer.tsx`), Relay (`api/app/src/ui/frame.js`) and Tags (`shared/pure/layout-frame.ts`) are where this code came from. Do not remove anything there from this project.
-- The catalogue began as Potion's and was copied by hand to Relay. Until both read this one, a change to a library's entry has to be made in all three.
+- **Every app shows its blocks through this package** (Potion, tags.city, Relay: web and iOS, since 2026-10-13; `README.md`, State, says where each app's side is). A change to the document or the bridge reaches all of them when they raise the version, so it is tried in `demo` and on this app first. Those repos are worked in by other sessions: message the session, use a separate worktree, commit explicit paths.
+- The catalogue began as Potion's and was copied by hand to Relay. Both still bring libraries from their own copy (their vendor routes), so a change to a library's entry has to be made in all three until they read this one.
 - **No file names a cluster.** `skaffold dev` deploys to the current kube context. The shared Postgres and the users service resolve only inside the M1's cluster, so switch to that pair before a dev routine: `kubectl config use-context m1 && docker context use m1`. `k8s/dev-setup.sh` refuses a cluster without the shared Postgres, by asking the cluster and not by its name.
 
 ## Check
