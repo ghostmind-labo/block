@@ -11,6 +11,7 @@
 - `lib/app/src/libraries.js` and `catalogue.js`: how a library's text is fetched (any npm package; a module is rewritten as a classic script that makes a global) and what was learned about the ones that were tried
 - `lib/app/src/slot.js`: a place of an app and the room a block has there. `defineSlot`, `slotText` for the model, `fit` for the frame
 - `lib/app/src/mount.js`: a block on a web page. The only file that touches a page
+- `lib/app/src/webview.js`: a block in a native app's web view. The same document and the same `serve`, joined through a channel of text (`transport: "webview"`, `webviewTarget`, `fromWebview`)
 - `demo/app`: a page with no build and no dependency; it imports the package's source from `/block/`
 - `mcp/app/src/blocks`: this app's slots (`slots.ts`), the contract given to the model (`contract.ts`), the check that brings a block's libraries before it is saved (`check.ts`). `mcp/app/src/auth` and `db/hasura.ts` are format's, unchanged
 - `ui/app/src/frame.tsx`: the one place the web app calls `mount`. `stage.tsx` draws the place around each slot

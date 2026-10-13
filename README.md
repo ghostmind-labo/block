@@ -76,6 +76,28 @@ await mount(container, html, {
 - **Bytes** (an `ArrayBuffer`, a typed array) cross as they are, as an argument or as an answer.
 - The functions run in the app, with the app's network and session. The frame holds only their names.
 
+## In a native app
+
+A web view has no page around it: the block's document is the top window, and the app is native code on the other side of a channel that carries text. The document and the app's side are the same as on the web; three small things join them.
+
+```js
+import { parse, documentOf, defineHost, serve, webviewTarget, fromWebview } from "@ghostmind-dev/block";
+
+const { source, libraries } = parse(html, { names: ["potion"] });
+const page = documentOf(source, { host, libraries: await bring(libraries), transport: "webview" });
+const served = serve(host, webviewTarget((js) => webRef.current?.injectJavaScript(js)), handlers, { onHeight, onLink });
+
+<WebView
+  source={{ html: page }}
+  onMessage={(event) => served.receive(fromWebview(event.nativeEvent.data))}
+  onShouldStartLoadWithRequest={(request) => request.url === "about:blank"}  // the block goes nowhere
+/>
+```
+
+- The same `handlers` as on the web, written once and used by both.
+- Bytes (a map tile) cross the text channel as base64 and are bytes again in the block.
+- What `PAGE_POLICY` is on a web page, the web view does here: it refuses every navigation after the first load.
+
 ## The page around a block
 
 One thing is the page's to do, because nothing inside the frame can: close its own `frame-src`. A block's script may set its frame's `location` to an outside address, with whatever the block was lent written in that address. The frame's policy does not cover that; the page's does.
