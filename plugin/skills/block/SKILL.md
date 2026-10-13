@@ -14,6 +14,8 @@ A block is one piece of html (markup, a `<style>`, a `<script>`) shown in a sand
 
 The tools say what a block may do: `create_block` carries the contract. This skill is what the tools cannot say.
 
+The rules common to every app's blocks (the sandbox, libraries, sizing, the ground) are the `html-block` skill, beside this one. This skill is what is the block app's own: its tools and its slots.
+
 ## The way to work
 
 1. **Choose the slot first.** Call `list_slots` unless the person plainly wants a page of its own. The slot decides everything about the layout: a block written for `page` does not fit in `hover`.
