@@ -6,7 +6,7 @@
 
 - `lib/app/src/policy.js`: the frame's `sandbox` value and the Content-Security-Policy written into every block. The whole security model is these few lines
 - `lib/app/src/parse.js`: the comment directives on a block's first lines (`<!-- block:use … -->`, an app's own spelling too) and the cover template
-- `lib/app/src/host.js`: what an app lends its blocks. `defineHost` declares it, `bridgeScript` is the script that makes `window.<name>` in the frame, `serve` is the app's side
+- `lib/app/src/host.js`: what an app lends its blocks. `defineHost` declares it (calls, watches, events), `bridgeScript` is the script that makes `window.<name>` in the frame, `serve` is the app's side. It knows no app's functions: an app's functions stay in the app
 - `lib/app/src/document.js`: the whole document of a block or of a cover, as text
 - `lib/app/src/libraries.js` and `catalogue.js`: how a library's text is fetched (any npm package; a module is rewritten as a classic script that makes a global) and what was learned about the ones that were tried
 - `lib/app/src/slot.js`: a place of an app and the room a block has there. `defineSlot`, `slotText` for the model, `fit` for the frame

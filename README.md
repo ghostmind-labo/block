@@ -43,6 +43,39 @@ In the block:
 
 Outside a web page (a server that renders the document, a React Native web view), use the parts `mount` is made of: `parse`, `documentOf` and `serve`.
 
+## An app's own functions
+
+The package knows no app's functions. An app names the ones it lends and gives a function for each; the block gets them under the app's name, with the arguments as the app wrote them.
+
+```js
+// Potion lends its notes. Tags would lend a checkpoint the same way: defineHost({ name: "tags", calls: ["checkpoint"] }).
+const potion = defineHost({ name: "potion", calls: ["getRecords", "openNote"], watches: ["watchRecords"] });
+
+await mount(container, html, {
+  host: potion,
+  handlers: {
+    getRecords: (structure, options) => api.records(structure, options),
+    openNote: (id, section) => router.open(id, section),
+    // A watch gets the block's function and returns the one that ends it.
+    watchRecords: (structure, options, onChange) => api.subscribe(structure, options, onChange),
+  },
+  rate: { calls: 300, per: 10_000 }, // optional: a block that asks more often is refused
+});
+```
+
+```html
+<script>
+  const books = await potion.getRecords("books", { limit: 20 });
+  const stop = potion.watchRecords("books", {}, (rows) => draw(rows));
+</script>
+```
+
+- **A call** answers once, with a promise. It is told it took too long after 30 s (`timeout`).
+- **A watch** gives the block a function that stops it, at once, and answers through the functions the block passed. It ends when the block stops it or when the frame goes away.
+- **A function as an argument**, alone or held by an options object (`{ onError }`), reaches the app's function as a function: calling it sends its value to the block.
+- **Bytes** (an `ArrayBuffer`, a typed array) cross as they are, as an argument or as an answer.
+- The functions run in the app, with the app's network and session. The frame holds only their names.
+
 ## Libraries
 
 A block names what it needs on its first lines and gets each as a global:
@@ -91,7 +124,7 @@ A dev routine refuses a cluster that has no shared Postgres (`k8s/dev-setup.sh`)
 
 ## Next
 
-- Before Potion can move onto the package: a limit on calls per block, a timeout per call, and binary answers (map tiles) on the bridge.
+- Before Potion can move onto the package: the parts of its block that are not calls. Its text scale, its expand to full size, its loading count, the click on a link that opens a note, and `potion.mapStyle`, which runs maplibre code inside the frame.
 - Move one app onto the package, Relay first: its frame is the closest to this code.
 - A React component and a React Native one around `mount` and `serve`.
 - Publish to npm once a second app uses it.
