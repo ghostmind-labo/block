@@ -4,7 +4,6 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createBlock, deleteBlock, getBlock, getSlots, listBlocks, updateBlock, type BlockSummary, type SlotInfo } from "./api";
 import { finishSignIn, signedIn, signIn, signOut } from "./auth";
-import { ThemePicker } from "./colors";
 import { EXAMPLES } from "./examples";
 import { BlockFrame, NO_REPORT, type Report, type Scheme } from "./frame";
 import { highlighted } from "./highlight";
@@ -27,7 +26,6 @@ export function Shell({ children, actions }: { children: ReactNode; actions?: Re
         </Link>
         <nav>
           <Link to="/try">Try one</Link>
-          <ThemePicker />
           {signedIn() ? <button className="quiet" onClick={signOut}>Sign out</button> : <button className="quiet" onClick={() => void signIn()}>Sign in</button>}
         </nav>
         {actions}
