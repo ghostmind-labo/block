@@ -59,8 +59,10 @@ export function ColorsSwitch() {
     try {
       localStorage.setItem(COLORS_OVERRIDE_KEY, mode);
     } catch {
-      return;
+      /* no storage: the reload shows COLORS_PACKAGE's choice */
     }
+    // Always a full reload: the stylesheet and data-theme are set by index.html before the first paint, and
+    // changing them under a running page left it blank.
     location.reload();
   };
   const side = (label: string, active: boolean, mode: "on" | "off") => (

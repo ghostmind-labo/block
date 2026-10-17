@@ -14,7 +14,7 @@ const proxy = Object.fromEntries(["/mcp", "/oauth", "/.well-known", "/api"].map(
 // choice (the pill, localStorage) wins. COLORS_SOURCE=local: the copy in src/colors-local made by
 // scripts/colors-local.sh, when it is there; npm otherwise.
 const dev = process.env.APP_ENV !== "prod";
-const packageOn = (process.env.COLORS_PACKAGE ?? (dev ? "on" : "off")) === "on";
+const packageOn = (process.env.COLORS_PACKAGE ?? "on") === "on";
 const localDir = path.resolve(import.meta.dirname, "src/colors-local");
 const colorsLocal = process.env.COLORS_SOURCE === "local" && fs.existsSync(path.join(localDir, "app.js"));
 if (colorsLocal) console.log("colors: @ghostmind-dev/colors from src/colors-local");

@@ -1,11 +1,11 @@
 /**
  * The options block gives @ghostmind-dev/colors, read by vite.config.ts (the stylesheet and pre-paint script
  * written into index.html) and by the page (the theme picker). Plain data.
- *
- * `system` (light or dark from the system until a theme is picked) arrives after 0.2.1: 0.2.1 ignores it and
- * shows Light until one is picked. Not typed as ColorsOptions so that it compiles against either version.
+ * `system`: light or dark from the system until a theme is picked (from 0.3.0).
  */
-export const COLORS_OPTIONS = {
+import type { ColorsOptions } from "@ghostmind-dev/colors/app";
+
+export const COLORS_OPTIONS: ColorsOptions = {
   themes: true,
   own: "light",
   system: { light: "light", dark: "dark" },
