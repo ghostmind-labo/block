@@ -8,7 +8,3 @@ dist/
 .env.*.local
 # Claude Code: a person's own permissions
 .claude/settings.local.json
-# Claude Code worktrees (inside the repo, never committed)
-.claude/worktrees/
-# the colors package copied from its repo for COLORS_SOURCE=local (ui/scripts/colors-local.sh)
-ui/app/src/colors-local/
