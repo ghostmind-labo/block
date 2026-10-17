@@ -13,7 +13,8 @@
     "dev": "skaffold dev --no-prune",
     "dev_keep": "skaffold dev --no-prune --cleanup=false",
     "start": "skaffold run --no-prune",
-    "delete": "skaffold delete"
+    "delete": "skaffold delete",
+    "colors_local": "bash scripts/colors-local.sh"
   },
   "herdr": {
     "workspaces": [
@@ -34,6 +35,11 @@
                     "web"
                   ],
                   "description": "The web app on http://localhost:5106 with hot reload (run routine dev), long-running"
+                },
+                {
+                  "name": "colors-local",
+                  "routine": "colors_local",
+                  "description": "Keeps app/src/colors-local a copy of the colors package built from /Volumes/Projects/colors (COLORS_SOURCE=local), so skaffold syncs it into the pod (run routine colors_local), long-running"
                 },
                 {
                   "name": "execution-shell",
