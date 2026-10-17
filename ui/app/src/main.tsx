@@ -3,7 +3,6 @@ import { createRootRoute, createRoute, createRouter, Outlet, RouterProvider } fr
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { SignedOut } from "./auth";
-import { ColorsSwitch } from "./colors";
 import { BlockPage, CallbackPage, HomePage, TryPage } from "./pages";
 import "./styles.css";
 
@@ -20,14 +19,7 @@ queryClient.getQueryCache().subscribe((event) => {
   if (event.type === "updated" && event.query.state.error instanceof SignedOut && location.pathname !== "/") location.assign("/");
 });
 
-const root = createRootRoute({
-  component: () => (
-    <>
-      <Outlet />
-      <ColorsSwitch />
-    </>
-  ),
-});
+const root = createRootRoute({ component: Outlet });
 const routes = [
   createRoute({ getParentRoute: () => root, path: "/", component: HomePage }),
   createRoute({ getParentRoute: () => root, path: "/try", component: TryPage }),
