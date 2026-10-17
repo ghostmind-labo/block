@@ -1,0 +1,24 @@
+/* COLORS_PACKAGE=on: block's own variables (styles.css) taken from @ghostmind-dev/colors' roles, so the theme
+   picked recolours the page with no other rule touched. Written into index.html with the package's stylesheet,
+   only when the switch is on (vite.config.ts). The selector outranks styles.css's :root and its dark media rule. */
+:root[data-colors="package"] {
+  --paper: var(--c-n-50-950);          /* background */
+  --raised: var(--c-n-0-900);          /* surface-primary */
+  --ink: var(--c-nz950-n100);          /* content-primary */
+  --muted: var(--c-nz500-x8c8c8c);     /* content-muted */
+  --line: var(--c-n-200-800);          /* border */
+  --accent: var(--c-brand-600-400);    /* the theme's brand */
+  --bad: var(--c-danger-600-400);      /* danger, readable as text on the page */
+  --code-string: var(--c-jade-700-300);
+  --code-keyword: var(--c-violet-700-300);
+  --code-number: var(--c-info-700-300);
+}
+
+/* Filled buttons take the theme's own button pair (primary / primary-foreground, a pair the package's contrast
+   gate checks) instead of white on --accent, which few themes can carry. --accent stays for links, marks and
+   focus rings. Quiet buttons and the slot tabs keep their own rules. */
+:root[data-colors="package"] :is(button, .button):not(.quiet, .tabs button) {
+  background: var(--c-nz900-n100);     /* primary */
+  border-color: var(--c-nz900-n100);
+  color: var(--c-n50-x1a1a1a);         /* primary-foreground */
+}
