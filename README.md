@@ -181,7 +181,7 @@ const turn = await runTurn({
 
 ## Run
 
-Dev runs on the current kube context. The shared Postgres and the users service are on the M1's cluster, so switch to it first: `kubectl config use-context m1 && docker context use m1`.
+Dev runs on the current kube and Docker contexts, as they are: which cluster is current is your choice, and nothing here switches or names one. It must be a cluster that runs the shared Postgres and the users service; `k8s/dev-setup.sh` asks it and stops otherwise.
 
 ```sh
 run routine test      # in lib/: the package's tests
