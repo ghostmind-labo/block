@@ -128,28 +128,39 @@ function Gallery() {
   );
 }
 
-// A block seen small. One made for a whole page or a column is drawn at three times the tile and scaled down,
-// so it is the block and not a corner of it; one made for a small place is shown at its own size.
+// A block seen small. One with a width of its own (a card, a panel) is drawn at that width and scaled down only as
+// much as the tile needs, in the middle; one as wide as its place (a page, a column) is drawn at three times the
+// tile and scaled down, so it is the block and not a corner of it.
 const WIDE = 3;
 function Tile({ block }: { block: BlockSummary }) {
   const slots = useSlots();
   const box = useRef<HTMLAnchorElement>(null);
+  const thumb = useRef<HTMLDivElement>(null);
   const [seen, setSeen] = useState(false);
+  const [room, setRoom] = useState(0);
   useEffect(() => {
     const watcher = new IntersectionObserver(([entry]) => entry.isIntersecting && setSeen(true), { rootMargin: "200px" });
     watcher.observe(box.current!);
-    return () => watcher.disconnect();
+    const sized = new ResizeObserver(([entry]) => setRoom(entry.contentRect.width));
+    sized.observe(thumb.current!);
+    return () => {
+      watcher.disconnect();
+      sized.disconnect();
+    };
   }, []);
   const { data } = useQuery({ queryKey: ["block", block.id], queryFn: () => getBlock(block.id), enabled: seen });
-  // its room (a block of the app's own slots before rooms: that slot's size)
   const own = slots ? slotFor(block, slots.slots) : null;
-  const small = Boolean(own && own.width?.max && own.width.max <= 320);
-  const slot = useMemo<Slot | null>(() => (own ? (small ? { ...own, interactive: false } : defineSlot({ name: own.name, height: "fill", interactive: false })) : null), [own, small]);
+  const width = own?.width?.max ?? null;
+  const slot = useMemo<Slot | null>(() => (own ? (width ? { ...own, interactive: false } : defineSlot({ name: own.name, height: "fill", interactive: false })) : null), [own, width]);
+  const scale = width && room ? Math.min(1, (room - 24) / width) : 1;
   return (
     <Link ref={box} to="/b/$id" params={{ id: block.id }} className="tile">
-      <div className={`thumb${small ? " thumb--small" : ""}`}>
+      <div ref={thumb} className={`thumb${width ? " thumb--small" : ""}`}>
         {data && slot && (
-          <div className="thumb-inner" style={small ? undefined : { width: `${WIDE * 100}%`, height: `${WIDE * 100}%`, transform: `scale(${1 / WIDE})` }}>
+          <div
+            className="thumb-inner"
+            style={width ? { width, zoom: scale } : { width: `${WIDE * 100}%`, height: `${WIDE * 100}%`, transform: `scale(${1 / WIDE})` }}
+          >
             <BlockFrame html={data.source} slot={slot} scheme={systemScheme()} title={block.name} sample={data.sample} bare />
           </div>
         )}
