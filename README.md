@@ -205,7 +205,7 @@ A dev routine refuses a cluster that has no shared Postgres (`k8s/dev-setup.sh`)
 
   | App | Web | iOS | Version it pins |
   |---|---|---|---|
-  | block | `ui/app/src/frame.tsx` (`mount`) | none yet | 0.2.0 |
+  | block | `ui/app/src/frame.tsx` (`mount`), `make.tsx` (layouts), `embed.tsx` | none yet | 0.4.0 |
   | Potion | `ui/app/src/lib/potion-block.ts`, `components/HtmlBlockRenderer.tsx`, `MarkdownPreview.tsx` (the feed card) | `native/app/components/elements/HtmlBlock.tsx` | web 0.2.0, iOS 0.3.1 |
   | tags.city | `shared/pure/layout-frame.ts`, `city/app/src/components/layouts/LayoutFrame.tsx`, `app/map/hover-layout.ts` | `native/app/components/elements/LayoutView` | 0.3.1 |
   | Relay | `api/app/src/ui/frame.js`, `dashboards.js` (the package is served to the page from `/ui/block@<version>/`) | `native/app/utils/block.ts`, `app/dashboard/[id].tsx` | 0.3.1 |
