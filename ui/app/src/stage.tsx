@@ -1,5 +1,5 @@
 import type { Slot } from "@ghostmind-dev/block";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BlockFrame, type Report, type Scheme } from "./frame";
 
 const Lines = ({ count }: { count: number }) => (
@@ -14,8 +14,10 @@ const Lines = ({ count }: { count: number }) => (
  * A block in the place it was written for. Around the frame is only a sketch of that place (lines for a note's
  * text, a grid for a map), so that the block is seen at the size and in the company it will have in an app.
  */
-export function Stage({ html, slot, scheme, title, onReport }: { html: string; slot: Slot; scheme: Scheme; title: string; onReport?: (report: Report) => void }) {
-  const frame = <BlockFrame html={html} slot={slot} scheme={scheme} title={title} onReport={onReport} />;
+export function Stage({ html, slot, scheme, title, sample, onReport }: { html: string; slot: Slot; scheme: Scheme; title: string; sample?: unknown; onReport?: (report: Report) => void }) {
+  // A layout's own room (a playground, not an app's place) is drawn alone, with nothing around it to try.
+  const own = slot.name === "layout";
+  const frame = <BlockFrame html={html} slot={slot} scheme={scheme} title={title} sample={sample} onReport={onReport} bare={own} />;
   return (
     <div className={`stage stage--${scheme}`} data-slot={slot.name}>
       {surround(slot, frame)}
@@ -24,6 +26,7 @@ export function Stage({ html, slot, scheme, title, onReport }: { html: string; s
 }
 
 function surround(slot: Slot, frame: ReactNode) {
+  if (slot.name === "layout") return <Room slot={slot}>{frame}</Room>;
   if (slot.fill) return <div className="place place--page">{frame}</div>;
   if (slot.name === "panel") return <Panel slot={slot}>{frame}</Panel>;
   if (slot.shrink) return <Hover>{frame}</Hover>;
@@ -79,6 +82,32 @@ function Hover({ children }: { children: ReactNode }) {
       <div className="under-mouse" style={at ? { left: at.x + 14, top: at.y + 14 } : { left: "50%", top: "50%", transform: "translate(-50%, -50%)" }}>
         {children}
       </div>
+    </div>
+  );
+}
+
+/** A layout's own room: the frame on a plain ground, with the size it is drawn at under it. */
+function Room({ slot, children }: { slot: Slot; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const seen = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setSize({ width: Math.round(width), height: Math.round(height) });
+    });
+    if (box.current) seen.observe(box.current);
+    return () => seen.disconnect();
+  }, []);
+  return (
+    <div className="place place--room">
+      <div className="room-frame" ref={box} style={{ width: slot.width?.max ? `min(100%, ${slot.width.max}px)` : "100%" }}>
+        {children}
+      </div>
+      {size && size.height > 0 && (
+        <p className="room-size">
+          {size.width} × {size.height} px
+        </p>
+      )}
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 `@ghostmind-dev/block`: the sandboxed html block shared by the Ghostmind apps. Read `README.md` first for what it is and how it is used.
 
+**block is the reference** (owner, 2026-10-18): every new app that needs custom html blocks takes block as its model, the package for the frame and this app for how a person makes a layout (a room, data fields read through `<app>.self()` and mocked while it is made, the live draft and the chat, blocks made from a layout). Build it here first, then the apps follow. For how an app plugs in its real data (`self()` answered by the app, layouts saved and used in it), the example is an individual app, Potion first: the html block started there.
+
 ## Map
 
 - `lib/app/src/policy.js`: the frame's `sandbox` value and the Content-Security-Policy written into every block. The whole security model is these few lines
@@ -9,11 +11,13 @@
 - `lib/app/src/host.js`: what an app lends its blocks. `defineHost` declares it (calls, watches, events), `bridgeScript` is the script that makes `window.<name>` in the frame, `serve` is the app's side. It knows no app's functions: an app's functions stay in the app
 - `lib/app/src/document.js`: the whole document of a block or of a cover, as text
 - `lib/app/src/libraries.js` and `catalogue.js`: how a library's text is fetched (any npm package; a module is rewritten as a classic script that makes a global) and what was learned about the ones that were tried
+- `lib/app/src/rules.js`, `check.js`, `draft.js`, `turn.js`: writing a block with a model, for every app: the shared rules and `instructions()`, `sourceProblems()`, the draft tools and `publishing()`, and `runTurn()`, the chat loop without the model call (README, "Writing a block with a model")
 - `lib/app/src/slot.js`: a place of an app and the room a block has there. `defineSlot`, `slotText` for the model, `fit` for the frame
 - `lib/app/src/mount.js`: a block on a web page. The only file that touches a page
 - `lib/app/src/webview.js`: a block in a native app's web view. The same document and the same `serve`, joined through a channel of text (`transport: "webview"`, `webviewTarget`, `fromWebview`)
 - `demo/app`: a page with no build and no dependency; it imports the package's source from `/block/`
-- `mcp/app/src/blocks`: this app's slots (`slots.ts`), the contract given to the model (`contract.ts`), the check that brings a block's libraries before it is saved (`check.ts`). `mcp/app/src/auth` and `db/hasura.ts` are format's, unchanged
+- `mcp/app/src/blocks`: this app's slots (`slots.ts`), the contract given to the model (`contract.ts`, from the package's `instructions`), the check that brings a block's libraries before it is saved (`check.ts`).
+- `mcp/app/src/drafts` and `ai`: the live draft (`drafts` table, one per person) and the layout chat on the person's own OpenRouter account (`ai_connection`, the key encrypted with `AI_KEY_ENCRYPTION_KEY`). `ui/app/src/make.tsx` is the page (`/make`). `mcp/app/src/auth` and `db/hasura.ts` are format's, unchanged
 - `ui/app/src/frame.tsx`: the one place the web app calls `mount`. `stage.tsx` draws the place around each slot
 - `tunnel`: cloudflared, the one public host in dev (`block.ghostmind.app`) and in prod (`block.ghostmind.dev`). It sends `/mcp`, `/oauth`, `/.well-known` and `/api` to the mcp and the rest to the web app
 - `.mcp.json`: the dev MCP (`block-dev`, block.ghostmind.app) for a Claude session in this repo. `plugin/.mcp.json` is the prod one
@@ -32,6 +36,11 @@
 - **Every app shows its blocks through this package** (Potion, tags.city, Relay: web and iOS, since 2026-10-13; `README.md`, State, says where each app's side is). A change to the document or the bridge reaches all of them when they raise the version, so it is tried in `demo` and on this app first. Those repos are worked in by other sessions: message the session, use a separate worktree, commit explicit paths.
 - The catalogue began as Potion's and was copied by hand to Relay. Both still bring libraries from their own copy (their vendor routes), so a change to a library's entry has to be made in all three until they read this one.
 - **No file names a cluster.** `skaffold dev` deploys to the current kube context. The shared Postgres and the users service resolve only inside the M1's cluster, so switch to that pair before a dev routine: `kubectl config use-context m1 && docker context use m1`. `k8s/dev-setup.sh` refuses a cluster without the shared Postgres, by asking the cluster and not by its name.
+
+## Traps met here
+
+- **An effect written as an expression returns what the expression returns.** `useEffect(() => el.scrollIntoView(...))` hands React a promise in current Chrome (scroll methods return one), and React fails with "destroy is not a function": the page goes blank. Write effects with braces.
+- **A slot made in a render** (`roomSlot(room)` inline) remounts the frame on every render, and the loop closed Chrome twice. One slot per room: `ui/app/src/room.ts`.
 
 ## Check
 

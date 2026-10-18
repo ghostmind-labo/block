@@ -14,9 +14,9 @@ interface Session {
   expiresAt: number;
 }
 
-const b64url = (bytes: ArrayBuffer | Uint8Array) =>
+export const b64url = (bytes: ArrayBuffer | Uint8Array) =>
   btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-const random = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
+export const random = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
 
 function load(): Session | null {
   try {

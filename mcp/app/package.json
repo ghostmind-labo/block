@@ -16,6 +16,7 @@
     "@ghostmind-dev/block": "0.2.0",
     "@modelcontextprotocol/node": "^2.1.1",
     "@modelcontextprotocol/server": "^2.3.0",
+    "@openrouter/sdk": "^1.4.25",
     "express": "^5.2.1",
     "zod": "^4.6.5"
   },

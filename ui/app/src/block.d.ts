@@ -26,9 +26,18 @@ declare module "@ghostmind-dev/block" {
     loadAll(list: unknown[]): Promise<{ libraries: Loaded[]; problems: string[] }>;
   }
   export function makeLoader(options?: { fetch?: typeof fetch }): Loader;
+  export interface Host {
+    readonly name: string;
+    readonly calls: readonly string[];
+  }
+  export function selfHost(name: string): Host;
+  export function shapeOf(sample: unknown): { key: string; kind: string }[];
+  export const FIELD_TYPES: readonly string[];
+  export function roomSlot(room: unknown, options?: { name?: string; what?: string }): Slot;
+  export function publishing(draft: { name?: string | null; based_on?: { id: string; name: string; used_by?: number } | null }, args?: { name?: string; as_new?: boolean }): string;
 }
 declare module "@ghostmind-dev/block/web" {
-  import type { Loaded, Loader, Slot } from "@ghostmind-dev/block";
+  import type { Host, Loaded, Loader, Slot } from "@ghostmind-dev/block";
   export interface Mounted {
     frame: HTMLIFrameElement;
     libraries: Loaded[];
@@ -41,6 +50,8 @@ declare module "@ghostmind-dev/block/web" {
     html: string,
     options?: {
       loader?: Loader;
+      host?: Host;
+      handlers?: Record<string, (...args: unknown[]) => unknown>;
       names?: string[];
       slot?: Slot;
       scheme?: string;

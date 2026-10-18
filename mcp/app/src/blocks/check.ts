@@ -1,4 +1,4 @@
-import { makeLoader, parse } from "@ghostmind-dev/block";
+import { describe, makeLoader, parse } from "@ghostmind-dev/block";
 
 /** The directive spellings read here: the package's own, and each app's, so a block written for one of them can be tried as it is. */
 export const DIRECTIVES = ["potion", "relay", "tags"];
@@ -39,4 +39,13 @@ export function sourceProblem(source: string): string | null {
   if (bytes > SOURCE_MAX_BYTES) return `the source is ${bytes} bytes; a block is ${SOURCE_MAX_BYTES} at most`;
   if (/^\s*```/.test(source)) return "the source starts with a ``` fence: give the html itself";
   return null;
+}
+
+/** What is known of a library, or it is brought now to see whether it can be: for a model choosing one. */
+export async function lookUpLibrary(name?: string) {
+  if (!name) return describe();
+  const known = describe(name.replace(/@[^/@]*$/, ""));
+  const tried = await bring(`<!-- block:use ${name.replace(/-->/g, "")} -->`);
+  if (tried.problems.length) return { found: false, problem: tried.problems[0], note: "Check the name and the version on npm. Nothing is brought for a block that names this." };
+  return { found: true, ...(known ?? { note: "Nobody tried this package in a frame. It was brought just now, so it can be named; whether it works without the network, storage and eval is for you to see." }), brought: tried.libraries };
 }

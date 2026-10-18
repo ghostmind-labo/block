@@ -9,10 +9,10 @@ import { BlockFrame, NO_REPORT, type Report, type Scheme } from "./frame";
 import { highlighted } from "./highlight";
 import { Stage } from "./stage";
 
-const systemScheme = (): Scheme => (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+export const systemScheme = (): Scheme => (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
-function useSlots() {
+export function useSlots() {
   const { data } = useQuery({ queryKey: ["slots"], queryFn: getSlots, staleTime: Infinity });
   return data;
 }
@@ -25,6 +25,7 @@ export function Shell({ children, actions }: { children: ReactNode; actions?: Re
           <i aria-hidden /> block
         </Link>
         <nav>
+          {signedIn() && <Link to="/make">Make one</Link>}
           <Link to="/try">Try one</Link>
           {signedIn() ? <button className="quiet" onClick={signOut}>Sign out</button> : <button className="quiet" onClick={() => void signIn()}>Sign in</button>}
         </nav>
@@ -36,7 +37,7 @@ export function Shell({ children, actions }: { children: ReactNode; actions?: Re
 }
 
 /** The slot tabs, the ground, and what the block reported: the same strip above every stage. */
-function Controls({ slots, slot, onSlot, scheme, onScheme, children }: { slots: SlotInfo[]; slot: string; onSlot: (name: string) => void; scheme: Scheme; onScheme: (scheme: Scheme) => void; children?: ReactNode }) {
+export function Controls({ slots, slot, onSlot, scheme, onScheme, children }: { slots: SlotInfo[]; slot: string; onSlot: (name: string) => void; scheme: Scheme; onScheme: (scheme: Scheme) => void; children?: ReactNode }) {
   return (
     <div className="controls">
       <div className="tabs" role="tablist" aria-label="Slot">
@@ -54,7 +55,7 @@ function Controls({ slots, slot, onSlot, scheme, onScheme, children }: { slots: 
   );
 }
 
-function Reported({ report, slot }: { report: Report; slot: SlotInfo }) {
+export function Reported({ report, slot }: { report: Report; slot: SlotInfo }) {
   return (
     <div className="reported">
       {report.size && !slot.fill && (
@@ -207,7 +208,7 @@ export function BlockPage() {
   if (!block.mine) {
     return (
       <div className="shared">
-        <Stage html={block.source} slot={slot} scheme={scheme} title={block.name} />
+        <Stage html={block.source} slot={slot} scheme={scheme} title={block.name} sample={block.sample} />
         <footer>
           <span>{block.name}</span>
           <Link to="/">made with block</Link>
@@ -263,7 +264,7 @@ export function BlockPage() {
         </Controls>
         {/* The code takes the block's place. The block stays where it is, unseen, so it keeps its size and what it was doing. */}
         <div className={`view${showSource ? " view--code" : ""}`}>
-          <Stage html={block.source} slot={slot} scheme={scheme} title={block.name} onReport={setReport} />
+          <Stage html={block.source} slot={slot} scheme={scheme} title={block.name} sample={block.sample} onReport={setReport} />
           {showSource && <pre className="source">{code}</pre>}
         </div>
         <Reported report={report} slot={slot} />

@@ -36,4 +36,59 @@ declare module "@ghostmind-dev/block" {
   }
   export function makeLoader(options?: { fetch?: typeof fetch }): { loadAll(list: Named[]): Promise<{ libraries: Loaded[]; problems: string[] }> };
   export function describe(name?: string, options?: { directive?: string }): { libraries?: Record<string, unknown>[]; any?: string; library?: Record<string, unknown> } | null;
+
+  export const RULES: readonly string[];
+  export function instructions(options?: { slots?: Slot[]; host?: Host; calls?: Record<string, string>; sample?: unknown; extra?: string }): string;
+  export const SOURCE_MAX_BYTES: number;
+  export function sourceProblems(source: string, options?: { names?: string[] }): string[];
+  export function roomAdvice(source: string, options?: { slot?: Slot }): string[];
+  export interface DraftTool {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+    write?: boolean;
+  }
+  export const DRAFT_TOOLS: readonly DraftTool[];
+  export interface Host {
+    readonly name: string;
+    readonly calls: readonly string[];
+    readonly watches: readonly string[];
+    readonly events: readonly string[];
+  }
+  export function selfHost(name: string): Host;
+  export function shapeOf(sample: unknown): { key: string; kind: string }[];
+  export interface Room {
+    width: { min?: number; max?: number } | null;
+    height: { min?: number; max?: number } | null;
+  }
+  export interface Field {
+    key: string;
+    type: string;
+  }
+  export const FIELD_TYPES: readonly string[];
+  export function checkRoom(room: unknown): Room;
+  export function roomSlot(room: unknown, options?: { name?: string; what?: string }): Slot;
+  export function checkFields(fields: unknown): Field[];
+  export function fieldsText(fields: unknown): string;
+  export function asFunctions(tools: readonly DraftTool[]): { type: "function"; function: { name: string; description: string; parameters: Record<string, unknown> } }[];
+  export function publishing(draft: { name?: string | null; based_on?: { id: string; name: string; used_by?: number } | null }, args?: { name?: string; as_new?: boolean }): string;
+  export interface Pending {
+    callId: string;
+    tool: string;
+    args: Record<string, unknown>;
+    summary: string;
+    detail?: string;
+  }
+  export function runTurn<M extends { role: string }>(options: {
+    converse: (request: { messages: M[] }) => Promise<{ message: M; model?: string; cost?: number }>;
+    tools: readonly { name: string; write?: boolean }[];
+    run: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+    describe?: (name: string, args: Record<string, unknown>) => { summary: string; detail?: string };
+    system: string;
+    messages?: M[];
+    text?: string;
+    approve?: { callId: string; approved: boolean };
+    maxSteps?: number;
+    maxText?: number;
+  }): Promise<{ messages: M[]; reply: string | null; pending: Pending | null; model: string | null; cost: number }>;
 }
