@@ -255,8 +255,10 @@ export function BlockPage() {
               {copied ? "Copied" : "Copy its address"}
             </button>
           )}
-          <button className="quiet danger" onClick={() => confirm(`Delete "${block.name}" for good?`) && remove.mutate()}>
-            Delete
+          <button className="quiet icon danger" aria-label="Delete" title="Delete" onClick={() => confirm(`Delete "${block.name}" for good?`) && remove.mutate()}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+            </svg>
           </button>
         </Controls>
         {/* The code takes the block's place. The block stays where it is, unseen, so it keeps its size and what it was doing. */}

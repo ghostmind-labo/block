@@ -17,7 +17,7 @@
 - `ui/app/src/frame.tsx`: the one place the web app calls `mount`. `stage.tsx` draws the place around each slot
 - `tunnel`: cloudflared, the one public host in dev (`block.ghostmind.app`) and in prod (`block.ghostmind.dev`). It sends `/mcp`, `/oauth`, `/.well-known` and `/api` to the mcp and the rest to the web app
 - `.mcp.json`: the dev MCP (`block-dev`, block.ghostmind.app) for a Claude session in this repo. `plugin/.mcp.json` is the prod one
-- `mcp` and `ui` read the package from npm, at an exact version (`@ghostmind-dev/block` in their `package.json`), like any other app. A change in `lib/` reaches them only once it is published and that version is raised. `demo` is the one place that reads `lib/` as it is on disk
+- In prod, `mcp` and `ui` read the package from npm, at an exact version (`@ghostmind-dev/block` in their `package.json`), like any other app: a change in `lib/` reaches prod only once it is published and that version is raised. In dev (any image built without `APP_ENV=prod`) their Dockerfiles replace the npm copy with a link to `lib/app`, and skaffold syncs `lib/app/src`, so dev (block.ghostmind.app) runs `lib/` as it is on disk, like `demo`
 
 ## Rules of this project
 
@@ -35,4 +35,4 @@
 
 ## Check
 
-`run routine test` in `lib/` and in `mcp/` must pass. The tests join the frame's script and the app's side without a browser (`node:vm`), so a change to the messages is caught there. A change to `mount.js` or to the document is checked in a browser before it is published, on the demo page (http://localhost:5105), which runs `lib/` as it is on disk. After publishing and raising the version in `ui` and `mcp`, it is checked again on the web app's try page (https://block.ghostmind.app/try, or http://localhost:5106/try): its examples cover three.js, a chart and every slot. Look at the page itself: a frame in a tab that is not showing has no size and reports none.
+`run routine test` in `lib/` and in `mcp/` must pass. The tests join the frame's script and the app's side without a browser (`node:vm`), so a change to the messages is caught there. A change to `mount.js` or to the document is checked in a browser before it is published, on the demo page (http://localhost:5105) or on dev (https://block.ghostmind.app, through the dev MCP), which both run `lib/` as it is on disk. After publishing and raising the version in `ui` and `mcp`, it is checked again on the web app's try page (https://block.ghostmind.app/try, or http://localhost:5106/try): its examples cover three.js, a chart and every slot. Look at the page itself: a frame in a tab that is not showing has no size and reports none.

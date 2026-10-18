@@ -46,7 +46,19 @@ The rules common to every app's blocks (the sandbox, libraries, sizing, the grou
 
 ## Traps
 
-- **Height.** In every slot but `page`, the frame is as tall as the content. `100vh` and `height: 100%` have nothing to refer to there. A chart or a canvas needs a parent with a height in pixels, or it collapses, or grows without end.
+- **Height.** In every slot but `page`, the frame is as tall as the content. `100vh`, `height: 100%` and `position: fixed; inset: 0` have nothing to refer to there: they take the frame's height, and the frame takes the block's. A chart, a canvas or a 3D scene needs a parent with a height of its own, or it collapses, or grows without end. The first three.js island was written as a page (`html, body { height: 100% }`, the stage fixed to the window) and showed as a 24 px sliver in `note` and `panel`. The shape that holds in every slot:
+
+  ```html
+  <style>
+    #stage { position: relative; aspect-ratio: 16 / 9; }           /* a height of its own, from its width */
+    html[data-block-slot="page"] #stage { aspect-ratio: auto; height: 100vh; }  /* the one slot where vh is the window */
+    #stage canvas { display: block; width: 100%; height: 100%; }
+    #bar { position: absolute; left: 12px; right: 12px; bottom: 10px; }  /* overlays inside the stage, never fixed */
+  </style>
+  <div id="stage"><div id="bar">…</div></div>
+  ```
+
+  The renderer is sized from `#stage` in a `ResizeObserver`. A block with no height at all is shown 16:9 of its width by the package, but that is a guess: give it the shape you mean.
 - **The room changes, and it arrives late.** A block starts before its frame has its real size, and the size changes afterwards (a panel dragged wider, a phone turned). A canvas, a chart or a renderer sized once at the start is drawn for the wrong room: the first maze made here filled only the middle of its page. Size it from its parent inside a `ResizeObserver` on that parent, and lay the rest out with `%`, flex, grid and `clamp()`. Check the block at the narrowest and the widest its slot allows: the block's page has a width handle for `panel`.
 - **The ground is not white.** The app may be light or dark. Either inherit (transparent ground, `currentColor`, greys such as `rgba(127,127,127,.25)`), or paint a ground of your own and every colour on it. Read the ink with `getComputedStyle(document.body).color` when a library wants a colour.
 - **`hover` and `card` are looked at, never clicked.** No buttons, no links, no scrolling, nothing that needs the mouse.

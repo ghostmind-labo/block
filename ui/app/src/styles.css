@@ -35,7 +35,10 @@ code { font: 12.5px ui-monospace, Menlo, monospace; padding: 1px 6px; margin-rig
 button, .button, select { font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; text-decoration: none; display: inline-block; }
 button.quiet, .button.quiet, select { background: transparent; color: var(--ink); border-color: var(--line); }
 button.quiet:hover, .button.quiet:hover { border-color: var(--muted); }
-button.danger { color: var(--bad); }
+/* A button that is only an icon: grey at rest, and red on hover when what it does cannot be undone. */
+button.icon { display: inline-flex; align-items: center; justify-content: center; padding: 7px 10px; color: var(--muted); }
+button.icon svg { display: block; }
+button.icon.danger:hover { color: var(--bad); }
 button:disabled { opacity: 0.5; cursor: default; }
 button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .error { color: var(--bad); }

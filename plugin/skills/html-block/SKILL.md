@@ -63,7 +63,7 @@ A library is named on the block's first lines, with the app's name, and **arrive
 
 A block is written for the place it is shown in, and the app's skill says how much room that is.
 
-- **As tall as its content**, in most places. `100vh` and `height: 100%` have nothing to refer to there. A canvas, a chart or a 3D scene needs a parent with a height in pixels (or an `aspect-ratio`).
+- **As tall as its content**, in most places. `100vh`, `height: 100%` and `position: fixed; inset: 0` have nothing to refer to there: they take the frame's height, which is the block's own, and the frame stays a sliver. A canvas, a chart or a 3D scene needs a parent with a height of its own (`aspect-ratio: 16 / 9`, or pixels), with its overlays `position: absolute` inside it. Write it like a page only where the app's place fills the frame.
 - **The room arrives late and changes.** A block starts before its frame has its real size, and the size changes after (a panel dragged, a phone turned, the block expanded to the screen). Size anything a script measures from its parent, inside a `ResizeObserver` on that parent. Never once at the start, never from `window`.
 - **Lay out with what flows**: `%`, flex, grid, `clamp()`. It must hold at the narrowest and the widest the place allows.
 - **Expanded**, where the app offers it, the block is told on `<html>` (`data-block-expanded`, and under the app's name: `data-potion-expanded`). Only there does `vh` mean the screen.
