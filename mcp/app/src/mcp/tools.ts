@@ -194,11 +194,11 @@ export function registerTools(server: McpServer, user: User) {
     "write_draft",
     {
       title: "Write the live draft",
-      description: `Writes the person's live draft: the whole source (it replaces what is there), its name, and its sample (the made-up data \`await block.self()\` answers while it is written: realistic values, in the shape the layout reads). ${LIVE} Its room and its fields may be written too, when the person asks; the sample keeps exactly the fields. Write a first version early, then step by step. The answer lists what is seen wrong in the source; fix it in the next write. Nothing is kept as a block until publish_draft.\n\n${CONTRACT}`,
+      description: `Writes the person's live draft: the whole source (it replaces what is there), its name, and, for a block, its sample (its own data, what \`await block.self()\` answers in it: real and specific; a layout has none, it is drawn with its fields' standard placeholders). ${LIVE} Its room and its fields may be written too, when the person asks; the sample keeps exactly the fields. Write a first version early, then step by step. The answer lists what is seen wrong in the source; fix it in the next write. Nothing is kept as a block until publish_draft.\n\n${CONTRACT}`,
       inputSchema: z.object({
         source: sourceSchema.optional(),
         name: z.string().min(1).max(120).optional(),
-        sample: z.record(z.string(), z.unknown()).optional().describe("Made-up data, the object block.self() answers"),
+        sample: z.record(z.string(), z.unknown()).optional().describe("A block's own data, the object block.self() answers (a layout's is its placeholders)"),
         room: z.object({ width: Side, height: Side }).optional().describe("Width and height in px: {min,max} equal = exactly, {max} = at most, null = full width / its content"),
         fields: z.array(z.object({ key: z.string(), type: z.enum(FIELD_TYPES as [string, ...string[]]) })).optional().describe("All the fields self() answers (replaces the list)"),
       }),

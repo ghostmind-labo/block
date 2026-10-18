@@ -35,6 +35,7 @@ declare module "@ghostmind-dev/block" {
   export function selfHost(name: string): Host;
   export function shapeOf(sample: unknown): { key: string; kind: string }[];
   export const FIELD_TYPES: readonly string[];
+  export function placeholders(fields: { key: string; type: string }[]): Record<string, unknown>;
   export function roomSlot(room: unknown, options?: { name?: string; what?: string }): Slot;
   export function publishing(draft: { name?: string | null; based_on?: { id: string; name: string; used_by?: number } | null }, args?: { name?: string; as_new?: boolean }): string;
 }

@@ -1,4 +1,4 @@
-import { FIELD_TYPES, publishing, type Slot } from "@ghostmind-dev/block";
+import { FIELD_TYPES, placeholders, publishing, type Slot } from "@ghostmind-dev/block";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
@@ -367,7 +367,7 @@ function LayoutView({ id, slots, onEdit, onBlock, onDelete }: { id: string; slot
           </button>
         </div>
       </header>
-      <Stage html={layout.source} slot={slot} scheme={systemScheme()} title={layout.name} sample={layout.sample} onReport={(report) => setErrors(report.errors)} />
+      <Stage html={layout.source} slot={slot} scheme={systemScheme()} title={layout.name} sample={placeholders(layout.fields)} onReport={(report) => setErrors(report.errors)} />
       <Errors errors={errors} />
     </>
   );
@@ -513,7 +513,7 @@ function Workspace({ draft, slots, ask, onSettings, onPublished, onGallery }: { 
             <p>Describe the {what} in the chat.</p>
           </div>
         ) : (
-          <Stage html={current.source} slot={slot} scheme={systemScheme()} title={current.name ?? "The draft"} sample={current.sample} onReport={setReport} />
+          <Stage html={current.source} slot={slot} scheme={systemScheme()} title={current.name ?? "The draft"} sample={current.kind === "layout" ? placeholders(current.fields) : current.sample} onReport={setReport} />
         )}
         {view === "code" && <TextPane key="code" label={`The ${what}'s html`} text={current.source} onSave={(source) => draft.write({ source })} onEditing={draft.setEditing} />}
         {view === "data" && <DataPane draft={current} onWrite={draft.write} onEditing={draft.setEditing} />}
@@ -772,10 +772,32 @@ const checkJson = (text: string) => {
   }
 };
 
-/** The made-up data the layout is drawn with: what block.self() answers while it is made. */
+/** A layout: what it accepts, drawn with standard placeholders nobody writes. A block: its own data, as JSON. */
 function DataPane({ draft, onWrite, onEditing }: { draft: Draft; onWrite: (changes: { sample: Record<string, unknown> | null }) => Promise<void>; onEditing: (on: boolean) => void }) {
   const save = useCallback((text: string) => onWrite({ sample: text.trim() ? (JSON.parse(text) as Record<string, unknown>) : null }), [onWrite]);
-  return <TextPane key="data" label="The made-up data, as JSON" text={draft.sample ? JSON.stringify(draft.sample, null, 2) : ""} onSave={save} onEditing={onEditing} check={checkJson} />;
+  if (draft.kind === "layout")
+    return (
+      <div className="text-pane">
+        <div className="asks">
+          <p>
+            <strong>What this layout accepts.</strong> While it is made it is drawn with standard placeholders, the same for every layout: plain words, a fixed number and date, a short list, a picture as a plain colour. Where it is used, the app fills each one; one it does not have stays empty.
+          </p>
+          {draft.fields.length ? (
+            <dl>
+              {draft.fields.map((field) => (
+                <div key={field.key}>
+                  <dt>{field.key}</dt>
+                  <dd>{field.type}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p className="faint">No data yet: add fields in Room & data, or ask the chat.</p>
+          )}
+        </div>
+      </div>
+    );
+  return <TextPane key="data" label="The block's data, as JSON" text={draft.sample ? JSON.stringify(draft.sample, null, 2) : ""} onSave={save} onEditing={onEditing} check={checkJson} />;
 }
 
 // ---- the chat

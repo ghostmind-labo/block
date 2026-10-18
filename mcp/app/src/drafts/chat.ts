@@ -42,7 +42,7 @@ export const BLOCK_HOST = selfHost("block");
 
 const ROLE = `You are the layout chat of block (${env.publicUrl}), a playground where layouts are made for the apps that show them (Potion, tags.city, Relay). A layout is a preset UI that accepts data, not a block. The person makes ONE layout or ONE block here (below), for a room and data they set themselves: you write it in their live draft, which is drawn next to this chat, in that room, and drawn again each time you write it. They watch it change.
 
-- The layout shows one object, which it gets with \`await block.self()\`: never written into the source. Its fields are the person's (below); in an app, each is one of the app's own values (potion.self().name). Read only those fields. While it is made, self() answers the draft's sample: made-up data you write with write_draft (sample), with exactly those fields, realistic and specific (real-sounding names, dates, numbers), never lorem ipsum. Write the sample first, then the layout that reads it. Nothing is required: a field that is missing is simply not drawn.
+- What is drawn shows one object, which it gets with \`await block.self()\`: never written into the source. Its fields are declared (below); in an app, each is one of the app's own values (potion.self().name). Read only those fields. Nothing is required: a field that is missing is simply not drawn (an empty space, never "undefined").
 - Everything is yours to change when the person asks: the look, the fields (what self() answers, with their kinds), the room (width and height), the sample. write_draft takes any of them; give the fields and the sample together when the fields change, so the sample keeps exactly the fields.
 - Write early: a first version at once, then improve it in steps, each one a whole source. Do not paste the source in the chat; the person sees the block, and the Code tab shows it.
 - Questions are welcome: answer them plainly. Not every message asks for a change.
@@ -58,13 +58,13 @@ async function system(userId: string) {
   const what = draft.kind === "block" ? "block" : "layout";
   const now = draft.source.trim()
     ? `THE DRAFT NOW: a ${what}, "${draft.name ?? "untitled"}", ${Buffer.byteLength(draft.source)} bytes${draft.based_on ? `, started from the ${what} "${draft.based_on.name}" (a publish replaces it)` : ", not published"}. read_draft gives its source.`
-    : `THE DRAFT NOW: an empty ${what}. Start it with write_draft: the sample, then the source.`;
+    : `THE DRAFT NOW: an empty ${what}. Start it with write_draft${draft.kind === "block" ? ": its data (sample), then the source" : ": the source"}.`;
   const kind =
     draft.kind === "block"
       ? draft.layout
         ? `YOU ARE MAKING A BLOCK from the layout "${draft.layout.name}": finished content for the gallery, to share or embed. Its look is the layout's: what you write is its DATA (write_draft sample), real and specific (the person's own values; ask for what you do not know, never make up a fact about a real place or person). When the person asks to change its look, say first that the block then stops following the layout, then write its source.`
         : "YOU ARE MAKING A BLOCK: finished content for the gallery, to share or embed, with html of its own. Its data is in its sample and read with block.self(), like a layout's; it is the content itself, so make it real and specific. Its fields are what you put in the sample."
-      : "YOU ARE MAKING A LAYOUT: a mold, a preset UI that accepts data, never shown on its own. It knows nothing of any real data: you have no access to the app's data or tools, only the draft, and every value it is drawn with is made up (the sample). It declares what it accepts (its fields) and reads each with self(); real data reaches it only later, when a block or an app fills it. Keep every value in self(), none in the source.";
+      : "YOU ARE MAKING A LAYOUT: a mold, a preset UI that accepts data, never shown on its own. It knows nothing of any real data: you have no access to the app's data or tools, only the draft. It declares what it accepts (its fields) and reads each with self(). While it is made, self() answers STANDARD PLACEHOLDERS made from the fields, the same for every layout: neutral words for text, a fixed number and date, a short list, and for a picture a plain colour (a data: address an <img> shows). You do not write them, and you do not invent realistic data: design for any value of each kind (a long name, a short one, a missing picture). Real data reaches it only later, when a block or an app fills it. Keep every value in self(), none in the source.";
   return [
     ROLE,
     kind,
@@ -93,7 +93,7 @@ async function run(userId: string, name: string, args: Record<string, unknown>) 
         fields: Array.isArray(args.fields) ? (args.fields as Field[]) : undefined,
       });
       const advice = draftAdvice(draft);
-      return { written: true, version: draft.version, name: draft.name, room: slotText(slotOf(draft)), fields: fieldsText(draft.fields), problems: problems.length ? problems : undefined, advice: advice.length ? advice : undefined };
+      return { written: true, version: draft.version, name: draft.name, room: slotText(slotOf(draft)), fields: fieldsText(draft.fields), ...(draft.kind === "layout" && args.sample ? { note: "a layout's sample is its fields' standard placeholders: the one you sent was not kept" } : {}), problems: problems.length ? problems : undefined, advice: advice.length ? advice : undefined };
     }
     case "publish_draft": {
       const kept = await publishDraft(userId, { name: text(args.name), as_new: args.as_new === true });

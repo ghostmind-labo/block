@@ -66,6 +66,7 @@ declare module "@ghostmind-dev/block" {
     type: string;
   }
   export const FIELD_TYPES: readonly string[];
+  export function placeholders(fields: { key: string; type: string }[]): Record<string, unknown>;
   export function checkRoom(room: unknown): Room;
   export function roomSlot(room: unknown, options?: { name?: string; what?: string }): Slot;
   export function checkFields(fields: unknown): Field[];

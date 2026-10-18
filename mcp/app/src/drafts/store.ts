@@ -7,7 +7,7 @@
  *     own data; given a look of its own, it stops following the layout.
  * Publishing keeps it, only when asked, replacing the layout or the block it was started from, or making a new one.
  */
-import { checkFields, checkRoom, publishing, roomAdvice, roomSlot, sourceProblems, type Room, type Field } from "@ghostmind-dev/block";
+import { checkFields, checkRoom, placeholders, publishing, roomAdvice, roomSlot, sourceProblems, type Room, type Field } from "@ghostmind-dev/block";
 import { gql } from "../db/hasura.ts";
 import { ApiError } from "../errors.ts";
 import { bring, DIRECTIVES } from "../blocks/check.ts";
@@ -105,6 +105,12 @@ export async function writeDraft(userId: string, changes: DraftChanges): Promise
   } catch (error) {
     throw new ApiError(400, (error as Error).message);
   }
+  // A layout is drawn with its fields' standard placeholders, never with data someone wrote: its sample follows its fields.
+  const kind = changes.kind ?? (changes.fields !== undefined || changes.sample !== undefined ? (await readDraft(userId)).kind : undefined);
+  if (kind === "layout") {
+    delete changes.sample;
+    if (changes.fields !== undefined || changes.kind !== undefined) set.sample = placeholders((set.fields as Field[] | undefined) ?? (await readDraft(userId)).fields);
+  }
   if (changes.sample !== undefined) {
     const sample = changes.sample;
     if (sample !== null && (typeof sample !== "object" || Array.isArray(sample))) throw new ApiError(400, "the sample is an object, in the shape self() returns");
@@ -131,7 +137,7 @@ export async function writeDraft(userId: string, changes: DraftChanges): Promise
 export async function loadDraft(userId: string, which: string): Promise<Draft> {
   const layout = await findLayout(userId, which);
   if (!layout) throw new ApiError(404, "There is no layout of yours by that id or name: list_layouts has them.");
-  return (await writeDraft(userId, { kind: "layout", source: layout.source, name: layout.name, slot: "layout", room: layout.room ?? null, fields: layout.fields, sample: layout.sample ?? null, based_on: layout.id, layout_id: null, block_id: null })).draft;
+  return (await writeDraft(userId, { kind: "layout", source: layout.source, name: layout.name, slot: "layout", room: layout.room ?? null, fields: layout.fields, based_on: layout.id, layout_id: null, block_id: null })).draft;
 }
 
 /** Starts the draft from one of the person's blocks: a publish then replaces that block. */
@@ -143,7 +149,7 @@ export async function loadBlockDraft(userId: string, id: string): Promise<Draft>
 
 /** A new, empty layout: its room and the data it shows, set by the person. */
 export async function newDraft(userId: string, { room, fields = [], name }: { room: Room; fields?: Field[]; name?: string | null }): Promise<Draft> {
-  return (await writeDraft(userId, { kind: "layout", source: "", name: name ?? null, slot: "layout", room, fields, sample: null, based_on: null, layout_id: null, block_id: null })).draft;
+  return (await writeDraft(userId, { kind: "layout", source: "", name: name ?? null, slot: "layout", room, fields, based_on: null, layout_id: null, block_id: null })).draft;
 }
 
 /** A new block: empty, in the room given, or from a layout (its look, its room, its fields, its made-up data to start). */
@@ -151,7 +157,8 @@ export async function newBlockDraft(userId: string, { layout: which, room, name 
   if (which) {
     const layout = await findLayout(userId, which);
     if (!layout) throw new ApiError(404, "There is no layout of yours by that id or name: list_layouts has them.");
-    return (await writeDraft(userId, { kind: "block", source: layout.source, name: name ?? null, slot: "layout", room: layout.room ?? null, fields: layout.fields, sample: layout.sample ?? null, based_on: null, layout_id: layout.id, block_id: null })).draft;
+    // the block starts from the layout's placeholders; its own data replaces them
+    return (await writeDraft(userId, { kind: "block", source: layout.source, name: name ?? null, slot: "layout", room: layout.room ?? null, fields: layout.fields, sample: placeholders(layout.fields), based_on: null, layout_id: layout.id, block_id: null })).draft;
   }
   return (await writeDraft(userId, { kind: "block", source: "", name: name ?? null, slot: "layout", room: room ?? { width: null, height: null }, fields: [], sample: null, based_on: null, layout_id: null, block_id: null })).draft;
 }
@@ -185,7 +192,7 @@ export async function publishDraft(userId: string, { name, as_new }: { name?: st
     return { kind: "block", id: block.id, name: block.name };
   }
 
-  const kept = { name: called, source: draft.source, room: draft.room, fields: draft.fields, sample: draft.sample };
+  const kept = { name: called, source: draft.source, room: draft.room, fields: draft.fields, sample: placeholders(draft.fields) };
   if (draft.based_on && !as_new) {
     const layout = await updateLayout(userId, draft.based_on.id, kept);
     if (layout) return { kind: "layout", id: layout.id, name: layout.name };

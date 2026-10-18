@@ -307,3 +307,13 @@ html.embedded, html.embedded body, html.embedded #root { background: transparent
 .gallery-one { width: 100%; max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
 .gallery-one .head { margin-bottom: 28px; }
 .gallery-one .stage { border: 0; background: transparent; }
+
+/* What a layout accepts: its fields, and the note that it is drawn with placeholders. */
+.asks { padding: 18px 20px; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-surface); font-size: 13px; line-height: 1.6; }
+.asks p { margin: 0 0 12px; color: var(--m-muted); max-width: 640px; }
+.asks strong { color: var(--m-ink); font-weight: 500; }
+.asks dl { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 20px; }
+.asks dl div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--m-line); }
+.asks dt { font: 12px var(--m-mono); color: var(--m-ink); }
+.asks dd { margin: 0; color: var(--m-blue); font-size: 12px; }
+.layouts .faint { color: var(--m-muted); }
