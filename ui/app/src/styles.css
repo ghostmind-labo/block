@@ -132,25 +132,30 @@ button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visi
 .shared .place--page { height: auto; min-height: calc(100vh - 34px); }
 .shared footer { display: flex; justify-content: space-between; padding: 6px 14px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
 
-/* Layouts: the playground. Warm monochrome, thin lines, type doing the work; scoped to its page. */
-.layouts, .veil {
-  --m-bg: #fbfbfa; --m-surface: #ffffff; --m-line: #eaeaea; --m-ink: #2f3437; --m-muted: #787774; --m-strong: #111111; --m-on-strong: #ffffff;
-  --m-tag: #f4f3f0; --m-bad-bg: #fdebec; --m-bad: #9f2f2d;
+/* The studio and the gallery. Minimal: type and thin lines do the work. The colours are Charlotte Posenenske's
+   (Germany, 1960s; her reliefs and ducts of galvanized steel in flat industrial colours, seen widely only decades
+   later): a raw steel ground, near-black ink, and three signal colours, each used once: red for the one action
+   that keeps something (Publish), blue for what is selected and for a layout, yellow for the moment a draft
+   is drawn again. */
+.layouts, .veil, .gallery-one {
+  --m-bg: #f3f3f0; --m-surface: #ffffff; --m-line: #dedfdb; --m-ink: #1c1d1b; --m-muted: #6f716c; --m-strong: #1c1d1b; --m-on-strong: #ffffff;
+  --m-tag: #ecece8; --m-bad-bg: #f7e4e2; --m-bad: #9c2a22;
+  --m-red: #b8261e; --m-yellow: #e8b500; --m-blue: #1f3b8c;
   --m-serif: "Newsreader", "Iowan Old Style", "Charter", Georgia, serif;
   --m-sans: "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
   --m-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
   font-family: var(--m-sans); color: var(--m-ink);
 }
 @media (prefers-color-scheme: dark) {
-  .layouts, .veil { --m-bg: #191919; --m-surface: #1f1f1f; --m-line: #2c2c2c; --m-ink: #e6e6e3; --m-muted: #8f8e8b; --m-strong: #e6e6e3; --m-on-strong: #111111; --m-tag: #252525; --m-bad-bg: #3a2222; --m-bad: #f0a59f; }
+  .layouts, .veil, .gallery-one { --m-bg: #141514; --m-surface: #1c1d1c; --m-line: #2c2e2c; --m-ink: #e7e8e4; --m-muted: #8e908b; --m-strong: #e7e8e4; --m-on-strong: #141514; --m-tag: #242624; --m-bad-bg: #3a2220; --m-bad: #f0a59f; --m-red: #e2463b; --m-yellow: #f2c230; --m-blue: #7d95e6; }
 }
 .full { height: 100vh; display: flex; }
 .layouts { flex: 1; display: grid; grid-template-columns: 300px 1fr; min-height: 0; background: var(--m-bg); }
 .layouts--editing { grid-template-columns: 380px 1fr; height: 100vh; }
-.layouts button, .veil button { font-family: var(--m-sans); border-radius: 6px; box-shadow: none; }
-.layouts button.solid, .veil button.solid, .layouts .chat-actions button:not(.text):not(.chip), .layouts .approve button:not(.text), .layouts .connect button { background: var(--m-strong); color: var(--m-on-strong); border: 1px solid var(--m-strong); padding: 7px 16px; font-size: 13.5px; }
-.layouts button:active:not(:disabled), .veil button:active:not(:disabled) { transform: scale(0.98); }
-.layouts button.text, .veil button.text { background: none; border: 0; padding: 4px 2px; color: var(--m-muted); font-size: 13px; }
+.layouts button, .veil button, .gallery-one button { font-family: var(--m-sans); border-radius: 6px; box-shadow: none; }
+.layouts button.solid, .veil button.solid, .gallery-one button.solid, .layouts .chat-actions button:not(.text):not(.chip), .layouts .approve button:not(.text), .layouts .connect button { background: var(--m-strong); color: var(--m-on-strong); border: 1px solid var(--m-strong); padding: 7px 16px; font-size: 13.5px; }
+.layouts button:active:not(:disabled), .veil button:active:not(:disabled), .gallery-one button:active:not(:disabled) { transform: scale(0.98); }
+.layouts button.text, .veil button.text, .gallery-one button.text { background: none; border: 0; padding: 4px 2px; color: var(--m-muted); font-size: 13px; }
 .layouts button.text:hover, .veil button.text:hover { color: var(--m-ink); }
 
 /* The left column: the list, or the chat. */
@@ -163,7 +168,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visi
 .list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .list li button { width: 100%; display: grid; gap: 2px; text-align: left; padding: 9px 10px; border: 0; border-radius: 6px; background: none; color: var(--m-ink); }
 .list li button:hover { background: var(--m-tag); }
-.list li button[aria-current="true"] { background: var(--m-tag); }
+.list li button[aria-current="true"] { background: var(--m-tag); box-shadow: inset 2px 0 0 var(--m-blue); }
 .list li span { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list li small { font: 11.5px var(--m-mono); color: var(--m-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .layouts button.back { align-self: flex-start; margin: 16px 16px 0; background: none; border: 0; padding: 4px 2px; color: var(--m-muted); font-size: 13px; }
@@ -173,9 +178,9 @@ button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visi
 .main { min-width: 0; padding: 40px 48px 64px; overflow-y: auto; }
 .layouts--editing .main { height: 100vh; }
 .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
-.layouts .head button.quiet { background: none; border: 1px solid var(--m-line); color: var(--m-ink); padding: 7px 14px; font-size: 13.5px; }
-.layouts .head button.quiet:hover { border-color: var(--m-muted); }
-.layouts .head button.quiet.on { background: var(--m-tag); }
+.layouts .head button.quiet, .gallery-one .head button.quiet { background: none; border: 1px solid var(--m-line); color: var(--m-ink); padding: 7px 14px; font-size: 13.5px; }
+.layouts .head button.quiet:hover, .gallery-one .head button.quiet:hover { border-color: var(--m-muted); }
+.layouts .head button.quiet.on, .gallery-one .head button.quiet.on { background: var(--m-tag); }
 .head .title { display: grid; gap: 4px; min-width: 0; flex: 1; }
 .head h1, .head .name { margin: 0; font: 500 32px/1.15 var(--m-serif); letter-spacing: -0.02em; color: var(--m-ink); }
 .head .name { border: 0; background: transparent; padding: 0; width: 100%; }
@@ -193,7 +198,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visi
 .room-frame { background: var(--m-surface); outline: 1px solid var(--m-muted); outline-offset: 0; }
 .room-size { margin: 0; font: 11px var(--m-mono); color: var(--m-muted); }
 .live .place--room { transition: box-shadow .5s; }
-.live--flash .place--room { box-shadow: 0 0 0 1px var(--m-muted); }
+.live--flash .room-frame { outline-color: var(--m-yellow); }
 .draft-empty { display: grid; place-content: center; min-height: 320px; border: 1px dashed var(--m-line); border-radius: 8px; }
 .draft-empty p { margin: 0; font: 500 19px/1.3 var(--m-serif); color: var(--m-muted); }
 .nothing { min-height: 60vh; display: grid; place-content: center; justify-items: center; gap: 14px; }
@@ -206,8 +211,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visi
 .layouts .code-edit { width: 100%; height: 100%; resize: none; background: transparent; color: transparent; caret-color: var(--m-ink); outline: none; }
 .layouts .code-edit::selection { background: rgba(127, 127, 127, 0.3); color: transparent; }
 .actions { display: flex; align-items: center; gap: 6px; }
-.layouts button.icon-only { display: inline-flex; padding: 7px 8px; background: none; border: 0; color: var(--m-muted); }
-.layouts button.icon-only:hover { color: var(--m-bad); }
+.layouts button.icon-only, .gallery-one button.icon-only { display: inline-flex; padding: 7px 8px; background: none; border: 0; color: var(--m-muted); }
+.layouts button.icon-only:hover, .gallery-one button.icon-only:hover { color: var(--m-bad); }
 .pane-problem { margin: 8px 0 0; font-size: 12.5px; color: var(--m-bad); }
 .problems { list-style: none; margin: 14px 0 0; padding: 10px 14px; font-size: 13px; line-height: 1.5; color: var(--m-bad); background: var(--m-bad-bg); border-radius: 6px; }
 
@@ -288,3 +293,17 @@ html.embedded, html.embedded body, html.embedded #root { background: transparent
 .embed { margin: 0 auto; }
 .embed-missing { margin: 0; padding: 12px; font: 13px ui-sans-serif, system-ui, sans-serif; color: #787774; }
 .embed-code { margin: 0; padding: 12px 14px; max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-all; font: 11.5px/1.6 var(--m-mono); color: var(--m-ink); background: var(--m-bg); border: 1px solid var(--m-line); border-radius: 6px; }
+
+/* The one action that keeps something: Publish, in signal red. */
+.layouts .head button.solid { background: var(--m-red); border-color: var(--m-red); color: #fff; }
+.layouts .head .actions button.solid { background: var(--m-strong); border-color: var(--m-strong); color: var(--m-on-strong); }
+.kind--layout { color: var(--m-blue); }
+.kind--block { color: var(--m-red); }
+.head .title .kind { justify-self: start; margin-bottom: 4px; }
+.room-frame { transition: outline-color .5s; }
+.list-foot { display: flex; justify-content: space-between; align-items: baseline; padding: 18px 8px 0; margin-top: 18px; border-top: 1px solid var(--m-line); }
+.text-link { font-size: 13px; color: var(--m-muted); text-decoration: none; }
+.text-link:hover { color: var(--m-ink); }
+.gallery-one { width: 100%; max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
+.gallery-one .head { margin-bottom: 28px; }
+.gallery-one .stage { border: 0; background: transparent; }

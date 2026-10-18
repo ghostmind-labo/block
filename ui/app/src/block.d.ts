@@ -26,6 +26,8 @@ declare module "@ghostmind-dev/block" {
     loadAll(list: unknown[]): Promise<{ libraries: Loaded[]; problems: string[] }>;
   }
   export function makeLoader(options?: { fetch?: typeof fetch }): Loader;
+  export function parse(html: string, options?: { names?: string[] }): { source: string; libraries: unknown[]; directives: { name: string; text: string }[]; cover: string | null };
+  export function documentOf(source: string, options?: { libraries?: Loaded[]; slot?: Slot; mode?: "inline" | "fill"; scheme?: string; style?: string }): string;
   export interface Host {
     readonly name: string;
     readonly calls: readonly string[];

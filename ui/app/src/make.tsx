@@ -1,8 +1,8 @@
-import { FIELD_TYPES, publishing, roomSlot, type Slot } from "@ghostmind-dev/block";
+import { FIELD_TYPES, publishing, type Slot } from "@ghostmind-dev/block";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { chatTurn, chooseModel, deleteBlock, disconnectAi, updateBlock, getAi, getBlock, getDraft, getModels, listBlocks, publishDraft, writeDraft, type AiStatus, type BlockSummary, type CatalogModel, type ChatMessage, type ChatTurn, type Draft, type Field, type Room } from "./api";
+import { chatTurn, chooseModel, deleteLayout, disconnectAi, getLayout, listLayouts, type LayoutSummary, getAi, getDraft, getModels, publishDraft, writeDraft, type AiStatus, type CatalogModel, type ChatMessage, type ChatTurn, type Draft, type Field, type Room } from "./api";
 import { signedIn, signIn } from "./auth";
 import { NO_REPORT, type Report } from "./frame";
 import { connectAi, finishConnectAi } from "./openrouter";
@@ -25,8 +25,8 @@ const STEPS: Record<string, string> = {
   write_draft: "Wrote the draft",
   publish_draft: "Published it",
   load_draft: "Opened a layout",
-  list_blocks: "Looked at your layouts",
-  get_block: "Read a layout",
+  list_layouts: "Looked at your layouts",
+  get_layout: "Read a layout",
   list_libraries: "Looked up a library",
 };
 
@@ -93,35 +93,56 @@ export function MakePage() {
 function Layouts() {
   const slots = useSlots();
   const client = useQueryClient();
+  const navigate = useNavigate();
   const { data: ai } = useQuery({ queryKey: ["ai"], queryFn: getAi });
-  const { data: layouts } = useQuery({ queryKey: ["blocks"], queryFn: listBlocks });
+  const { data: layouts } = useQuery({ queryKey: ["layouts"], queryFn: listLayouts });
   const draft = useDraft();
   const [selected, setSelected] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [settings, setSettings] = useState<"new" | "edit" | null>(null);
-  // Another layout is another conversation.
+  const [settings, setSettings] = useState<"new-layout" | "new-block" | "edit" | null>(null);
+  const [blockFrom, setBlockFrom] = useState<string | null>(null);
+  // Another draft is another conversation.
   const [round, setRound] = useState(0);
   const [asking, ask] = useAsk();
+
+  // A block opened from the gallery (`/make?block=<id>`) goes straight into the editor.
+  const opened = useRef(false);
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get("block");
+    if (!id || opened.current || !draft.current) return;
+    opened.current = true;
+    void (async () => {
+      if (draft.current?.kind !== "block" || draft.current.based_on?.id !== id) {
+        await draft.write({ from_block: id });
+        keepChat([]);
+        setRound((n) => n + 1);
+      }
+      setEditing(true);
+      history.replaceState(null, "", "/make");
+    })();
+  }, [draft]);
 
   const shown = selected ?? layouts?.[0]?.id ?? null;
   if (!slots || !layouts || !draft.current) return <Shell>{null}</Shell>;
   const current = draft.current;
   const unpublished = Boolean(current.source.trim()) && !current.based_on;
+  const what = current.kind === "block" ? "block" : "layout";
 
   const startOver = () => {
     keepChat([]);
     setRound((n) => n + 1);
   };
+  const replacing = async () => !unpublished || (await ask(`The ${what} “${current.name ?? "untitled"}” was not published. Starting another replaces it.`, "Start another"));
   const edit = async (id: string) => {
-    if (current.based_on?.id !== id) {
-      if (unpublished && !(await ask(`“${current.name ?? "Untitled layout"}” was not published. Opening another layout replaces it.`, "Open it"))) return;
+    if (current.kind !== "layout" || current.based_on?.id !== id) {
+      if (!(await replacing())) return;
       await draft.write({ from: id });
       startOver();
     }
     setEditing(true);
   };
 
-  // Editing is the whole window: the chat and the layout, nothing above them.
+  // Editing is the whole window: the chat and the draft, nothing above them.
   const Frame = editing ? FullPage : Shell;
   return (
     <Frame>
@@ -133,51 +154,82 @@ function Layouts() {
                 className="back"
                 onClick={() => {
                   setEditing(false);
-                  setSelected(current.based_on?.id ?? selected);
+                  if (current.kind === "layout") setSelected(current.based_on?.id ?? selected);
                 }}
               >
-                ← Layouts
+                ← Studio
               </button>
               {ai && (ai.connected ? <Chat key={round} ai={ai} /> : <Connect />)}
             </>
           ) : (
-            <LayoutList layouts={layouts} slots={slots.slots} shown={shown} onShow={setSelected} onNew={() => setSettings("new")} draft={current.version > 0 && !current.based_on ? current : null} onDraft={() => setEditing(true)} />
+            <LayoutList
+              layouts={layouts}
+              slots={slots.slots}
+              shown={shown}
+              onShow={setSelected}
+              onNewLayout={() => setSettings("new-layout")}
+              onNewBlock={() => {
+                setBlockFrom(null);
+                setSettings("new-block");
+              }}
+              draft={current.version > 0 && !current.based_on && current.source.trim() ? current : null}
+              onDraft={() => setEditing(true)}
+            />
           )}
         </aside>
         <section className="main">
           {editing ? (
-            <Workspace draft={draft} slots={slots.slots} ask={ask} onSettings={() => setSettings("edit")} onPublished={() => void client.invalidateQueries({ queryKey: ["blocks"] })} />
+            <Workspace
+              draft={draft}
+              slots={slots.slots}
+              ask={ask}
+              onSettings={() => setSettings("edit")}
+              onPublished={(kept) => {
+                void client.invalidateQueries({ queryKey: [kept.kind === "block" ? "blocks" : "layouts"] });
+                if (kept.kind === "block") void client.invalidateQueries({ queryKey: ["block", kept.id] });
+              }}
+              onGallery={(id) => void navigate({ to: "/b/$id", params: { id } })}
+            />
           ) : shown ? (
             <LayoutView
               id={shown}
               slots={slots.slots}
-              onShow={setSelected}
               onEdit={() => void edit(shown)}
+              onBlock={() => {
+                setBlockFrom(shown);
+                setSettings("new-block");
+              }}
               onDelete={async (name) => {
-                if (!(await ask(`Delete “${name}” for good? Its address stops working too.`, "Delete"))) return;
-                await deleteBlock(shown);
+                if (!(await ask(`Delete the layout “${name}” for good? The blocks made from it keep their look.`, "Delete"))) return;
+                await deleteLayout(shown);
                 setSelected(null);
-                await client.invalidateQueries({ queryKey: ["blocks"] });
+                await client.invalidateQueries({ queryKey: ["layouts"] });
               }}
             />
           ) : (
             <div className="nothing">
-              <p>No layouts yet.</p>
-              <button className="solid" onClick={() => setSettings("new")}>
-                New layout
-              </button>
+              <p>Nothing in the studio yet.</p>
+              <div className="row">
+                <button className="solid" onClick={() => setSettings("new-layout")}>
+                  New layout
+                </button>
+                <button className="quiet" onClick={() => setSettings("new-block")}>
+                  New block
+                </button>
+              </div>
             </div>
           )}
         </section>
-        {settings && (
+        {(settings === "new-layout" || settings === "edit") && (
           <RoomAndData
-            title={settings === "new" ? "New layout" : "Room & data"}
-            action={settings === "new" ? "Create" : "Save"}
-            initial={settings === "new" ? { name: "", room: { width: { max: 480 }, height: null }, fields: [{ key: "name", type: "text" }] } : { name: current.name ?? "", room: roomOf(current, slots.slots), fields: current.fields }}
+            title={settings === "edit" ? "Room & data" : "New layout"}
+            action={settings === "edit" ? "Save" : "Start"}
+            withFields={settings === "new-layout" || current.kind === "layout"}
+            initial={settings === "edit" ? { name: current.name ?? "", room: roomOf(current, slots.slots), fields: current.fields } : { name: "", room: { width: { max: 480 }, height: null }, fields: [{ key: "name", type: "text" }] }}
             onClose={() => setSettings(null)}
             onSave={async ({ name, room, fields }) => {
-              if (settings === "new") {
-                if (unpublished && !(await ask(`“${current.name ?? "Untitled layout"}” was not published. A new layout replaces it.`, "Start a new one"))) return;
+              if (settings === "new-layout") {
+                if (!(await replacing())) return;
                 await draft.write({ fresh: { room, fields, name: name || null } });
                 startOver();
                 setEditing(true);
@@ -185,6 +237,20 @@ function Layouts() {
                 await draft.write({ room, fields, name: name || null });
               }
               setSettings(null);
+            }}
+          />
+        )}
+        {settings === "new-block" && (
+          <NewBlock
+            layouts={layouts}
+            from={blockFrom}
+            onClose={() => setSettings(null)}
+            onStart={async ({ name, layout, room }) => {
+              if (!(await replacing())) return;
+              await draft.write({ fresh_block: { name: name || null, layout, room } });
+              startOver();
+              setSettings(null);
+              setEditing(true);
             }}
           />
         )}
@@ -233,12 +299,12 @@ function Ask({ text, yes, onAnswer }: { text: string; yes: string; onAnswer: (ok
 
 const FullPage = ({ children }: { children: ReactNode }) => <div className="full">{children}</div>;
 
-function LayoutList({ layouts, slots, shown, onShow, onNew, draft, onDraft }: { layouts: BlockSummary[]; slots: Slot[]; shown: string | null; onShow: (id: string) => void; onNew: () => void; draft: Draft | null; onDraft: () => void }) {
+function LayoutList({ layouts, slots, shown, onShow, onNewLayout, onNewBlock, draft, onDraft }: { layouts: LayoutSummary[]; slots: Slot[]; shown: string | null; onShow: (id: string) => void; onNewLayout: () => void; onNewBlock: () => void; draft: Draft | null; onDraft: () => void }) {
   return (
-    <nav className="list" aria-label="Your layouts">
+    <nav className="list" aria-label="Studio">
       <div className="list-head">
         <h2>Layouts</h2>
-        <button className="text" onClick={onNew}>
+        <button className="text" onClick={onNewLayout}>
           New
         </button>
       </div>
@@ -246,158 +312,125 @@ function LayoutList({ layouts, slots, shown, onShow, onNew, draft, onDraft }: { 
         {draft && (
           <li>
             <button onClick={onDraft} title="Not published yet: open it to go on">
-              <span>{draft.name ?? "Untitled layout"}</span>
-              <small>draft · {roomText(roomOf(draft, slots))}</small>
+              <span>{draft.name ?? "Untitled"}</span>
+              <small>
+                {draft.kind} draft · {roomText(roomOf(draft, slots))}
+              </small>
             </button>
           </li>
         )}
-        {layouts
-          .filter((layout) => !layout.layout_id)
-          .map((layout) => (
-            <li key={layout.id}>
-              <button aria-current={layout.id === shown} onClick={() => onShow(layout.id)}>
-                <span>{layout.name}</span>
-                <small>{roomText(roomOf(layout, slots))}</small>
-              </button>
-            </li>
-          ))}
+        {layouts.map((layout) => (
+          <li key={layout.id}>
+            <button aria-current={layout.id === shown} onClick={() => onShow(layout.id)}>
+              <span>{layout.name}</span>
+              <small>{roomText(roomOf({ room: layout.room, slot: "layout" }, slots))}</small>
+            </button>
+          </li>
+        ))}
       </ul>
-      {layouts.some((layout) => layout.layout_id) && (
-        <>
-          <div className="list-head list-head--second">
-            <h2>Blocks</h2>
-          </div>
-          <ul>
-            {layouts
-              .filter((block) => block.layout_id)
-              .map((block) => (
-                <li key={block.id}>
-                  <button aria-current={block.id === shown} onClick={() => onShow(block.id)}>
-                    <span>{block.name}</span>
-                    <small>from {block.layout?.name ?? "a layout"}</small>
-                  </button>
-                </li>
-              ))}
-          </ul>
-        </>
-      )}
+      <div className="list-foot">
+        <button className="text" onClick={onNewBlock}>
+          New block →
+        </button>
+        <Link to="/" className="text-link">
+          Gallery
+        </Link>
+      </div>
     </nav>
   );
 }
 
-/** One layout as it is kept: drawn in its room with its data, and the way into editing it. */
-function LayoutView({ id, slots, onEdit, onDelete, onShow }: { id: string; slots: Slot[]; onEdit: () => void; onDelete: (name: string) => Promise<void>; onShow: (id: string) => void }) {
-  const { data: layout } = useQuery({ queryKey: ["block", id], queryFn: () => getBlock(id) });
+/** One layout: drawn in its room with its made-up data. Edit it, or make a block from it. */
+function LayoutView({ id, slots, onEdit, onBlock, onDelete }: { id: string; slots: Slot[]; onEdit: () => void; onBlock: () => void; onDelete: (name: string) => Promise<void> }) {
+  const { data: layout } = useQuery({ queryKey: ["layout", id], queryFn: () => getLayout(id) });
   const [errors, setErrors] = useState<string[]>([]);
-  const [embedding, setEmbedding] = useState(false);
-  const [size, setSize] = useState<number | null>(null);
   if (!layout) return null;
-  const slot = slotFor(layout, slots);
+  const slot = slotFor({ room: layout.room, slot: "layout" }, slots);
   return (
     <>
       <header className="head">
         <div className="title">
           <h1>{layout.name}</h1>
-          {layout.layout ? (
-            <p className="meta">
-              from{" "}
-              <button className="meta meta--button" onClick={() => onShow(layout.layout!.id)}>
-                {layout.layout.name}
-              </button>{" "}
-              · its own data: {Object.keys((layout.sample as object | null) ?? {}).join(", ") || "none"}
-            </p>
-          ) : (
-            <Meta room={roomOf(layout, slots)} fields={layout.fields ?? []} />
-          )}
+          <Meta room={roomOf({ room: layout.room, slot: "layout" }, slots)} fields={layout.fields} />
         </div>
         <div className="actions">
-          <ShareButton id={layout.id} shared={layout.shared} />
-          {layout.shared && (
-            <button className="quiet" onClick={() => setEmbedding(true)}>
-              Embed
-            </button>
-          )}
           <button className="icon-only" aria-label="Delete" title="Delete" onClick={() => void onDelete(layout.name)}>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
             </svg>
           </button>
-          {!layout.layout && (
-            <button className="solid" onClick={onEdit}>
-              Edit
-            </button>
-          )}
+          <button className="quiet" onClick={onBlock}>
+            Make a block
+          </button>
+          <button className="solid" onClick={onEdit}>
+            Edit
+          </button>
         </div>
       </header>
-      <Stage
-        html={layout.source}
-        slot={slot}
-        scheme={systemScheme()}
-        title={layout.name}
-        sample={layout.sample}
-        onReport={(report) => {
-          setErrors(report.errors);
-          if (report.size?.height) setSize(report.size.height);
-        }}
-      />
+      <Stage html={layout.source} slot={slot} scheme={systemScheme()} title={layout.name} sample={layout.sample} onReport={(report) => setErrors(report.errors)} />
       <Errors errors={errors} />
-      {embedding && layout.shared && <Embed id={layout.id} name={layout.name} width={slot.width?.max ?? null} height={size ?? slot.height?.max ?? 400} onClose={() => setEmbedding(false)} />}
     </>
   );
 }
 
-/** Shared: its address is public, and it can be embedded. Not shared: only its owner sees it, and every embed is blank. */
-function ShareButton({ id, shared }: { id: string; shared: boolean }) {
-  const client = useQueryClient();
-  const share = useMutation({
-    mutationFn: (on: boolean) => updateBlock(id, { shared: on }),
-    onSuccess: () => Promise.all([client.invalidateQueries({ queryKey: ["block", id] }), client.invalidateQueries({ queryKey: ["blocks"] })]),
-  });
-  return (
-    <button
-      className={`quiet${shared ? " on" : ""}`}
-      disabled={share.isPending}
-      title={shared ? "Anyone with its address sees it, and it can be embedded. Click to stop sharing: every embed goes blank" : "Only you see it. Share it to give it a public address and embed it"}
-      onClick={() => share.mutate(!shared)}
-    >
-      {shared ? "Shared" : "Share"}
-    </button>
-  );
-}
-
-/** The code that shows a shared block on another site: an iframe, and a line that makes it follow the block's height. */
-function Embed({ id, name, width, height, onClose }: { id: string; name: string; width: number | null; height: number; onClose: () => void }) {
-  const [copied, setCopied] = useState(false);
+/** A new block: from one of the layouts (its look, filled with the block's own data), or from nothing, in a room. */
+function NewBlock({ layouts, from, onClose, onStart }: { layouts: LayoutSummary[]; from: string | null; onClose: () => void; onStart: (value: { name: string; layout: string | null; room?: Room }) => Promise<void> }) {
+  const [name, setName] = useState("");
+  const [layout, setLayout] = useState<string>(from ?? "");
+  const [width, setWidth] = useState("480");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => event.key === "Escape" && onClose();
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
   }, [onClose]);
-  const src = `${location.origin}/e/${id}`;
-  const code = [
-    `<iframe src="${src}" title="${name.replace(/"/g, "&quot;")}" loading="lazy" style="display:block;border:0;width:100%;${width ? `max-width:${width}px;` : ""}height:${height}px"></iframe>`,
-    `<script>addEventListener("message",e=>{if(e.origin==="${location.origin}"&&e.data&&e.data.type==="block-embed-size")for(const f of document.querySelectorAll('iframe[src="${location.origin}/e/'+e.data.id+'"]'))f.style.height=e.data.height+"px"})</script>`,
-  ].join("\n");
+  const start = async () => {
+    setBusy(true);
+    try {
+      await onStart({ name: name.trim(), layout: layout || null, room: layout ? undefined : { width: Number(width) ? { max: Number(width) } : null, height: null } });
+    } catch (error) {
+      setProblem((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div className="veil" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="window" role="dialog" aria-modal="true" aria-label="Embed">
-        <h2>Embed</h2>
-        <p className="hint">Paste it in any page. The first line shows the block; the second, optional, makes the frame follow its height. It works while the block is shared.</p>
-        <pre className="embed-code">{code}</pre>
+      <div className="window" role="dialog" aria-modal="true" aria-label="New block">
+        <h2>New block</h2>
+        <p className="hint">Finished content for the gallery, to share or embed. The chat makes it with you.</p>
+        <label className="field">
+          <span>Name</span>
+          <input autoFocus value={name} placeholder="Pizzeria Napoletana" onChange={(event) => setName(event.target.value)} />
+        </label>
+        <label className="field">
+          <span>From</span>
+          <select value={layout} onChange={(event) => setLayout(event.target.value)}>
+            <option value="">Nothing: its own html</option>
+            {layouts.map((each) => (
+              <option key={each.id} value={each.id}>
+                The layout “{each.name}”
+              </option>
+            ))}
+          </select>
+        </label>
+        {!layout && (
+          <label className="field">
+            <span>Width, at most</span>
+            <div className="combo">
+              <input inputMode="numeric" value={width} onChange={(event) => setWidth(event.target.value.replace(/\D/g, ""))} aria-label="Width in px" />
+              <em>px</em>
+            </div>
+          </label>
+        )}
+        {problem && <p className="pane-problem">{problem}</p>}
         <div className="window-foot">
           <button className="text" onClick={onClose}>
-            Close
+            Cancel
           </button>
-          <button
-            className="solid"
-            onClick={() => {
-              void navigator.clipboard.writeText(code).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              });
-            }}
-          >
-            {copied ? "Copied" : "Copy"}
+          <button className="solid" disabled={busy} onClick={() => void start()}>
+            Start
           </button>
         </div>
       </div>
@@ -426,25 +459,27 @@ const Errors = ({ errors }: { errors: string[] }) =>
   ) : null;
 
 /** The layout being edited: its name, its room and data, and the draft drawn, as code, or as its data. */
-function Workspace({ draft, slots, ask, onSettings, onPublished }: { draft: ReturnType<typeof useDraft>; slots: Slot[]; ask: (text: string, yes: string) => Promise<boolean>; onSettings: () => void; onPublished: () => void }) {
+function Workspace({ draft, slots, ask, onSettings, onPublished, onGallery }: { draft: ReturnType<typeof useDraft>; slots: Slot[]; ask: (text: string, yes: string) => Promise<boolean>; onSettings: () => void; onPublished: (kept: { kind: "layout" | "block"; id: string; name: string }) => void; onGallery: (id: string) => void }) {
   const current = draft.current!;
   const [view, setView] = useState<"preview" | "code" | "data">("preview");
   const [report, setReport] = useState<Report>(NO_REPORT);
-  const [status, setStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ text: string; block?: string } | null>(null);
   const publish = useMutation({
     mutationFn: () => publishDraft(),
-    onSuccess: (block) => {
-      setStatus(`Published as “${block.name}”.`);
-      onPublished();
+    onSuccess: (kept) => {
+      setStatus({ text: `Published as “${kept.name}”.`, ...(kept.kind === "block" ? { block: kept.id } : {}) });
+      onPublished(kept);
     },
-    onError: (error) => setStatus(error.message),
+    onError: (error) => setStatus({ text: error.message }),
   });
+  const what = current.kind === "block" ? "block" : "layout";
   const slot = slotFor(current, slots);
   const empty = !current.source.trim();
   return (
     <>
       <header className="head">
         <div className="title">
+          <span className={`kind kind--${what}`}>{current.kind === "block" && current.layout ? `block · from ${current.layout.name}` : what}</span>
           <DraftName draft={current} onWrite={draft.write} />
           <Meta room={roomOf(current, slots)} fields={current.fields} onClick={onSettings} />
         </div>
@@ -461,17 +496,26 @@ function Workspace({ draft, slots, ask, onSettings, onPublished }: { draft: Retu
             {each === "preview" ? "Preview" : each === "code" ? "Code" : "Data"}
           </button>
         ))}
-        {status && <span className="status">{status}</span>}
+        {status && (
+          <span className="status">
+            {status.text}{" "}
+            {status.block && (
+              <button className="text" onClick={() => onGallery(status.block!)}>
+                Open in the gallery
+              </button>
+            )}
+          </span>
+        )}
       </div>
       <div className={`view live${draft.flash ? " live--flash" : ""}${view !== "preview" ? " view--code" : ""}`}>
         {empty ? (
           <div className="draft-empty">
-            <p>Describe the layout in the chat.</p>
+            <p>Describe the {what} in the chat.</p>
           </div>
         ) : (
           <Stage html={current.source} slot={slot} scheme={systemScheme()} title={current.name ?? "The draft"} sample={current.sample} onReport={setReport} />
         )}
-        {view === "code" && <TextPane key="code" label="The layout's html" text={current.source} onSave={(source) => draft.write({ source })} onEditing={draft.setEditing} />}
+        {view === "code" && <TextPane key="code" label={`The ${what}'s html`} text={current.source} onSave={(source) => draft.write({ source })} onEditing={draft.setEditing} />}
         {view === "data" && <DataPane draft={current} onWrite={draft.write} onEditing={draft.setEditing} />}
       </div>
       <Errors errors={[...draft.problems, ...report.errors]} />
@@ -480,7 +524,7 @@ function Workspace({ draft, slots, ask, onSettings, onPublished }: { draft: Retu
 }
 
 /** A window over the page: the layout's name, its room and the data it shows. */
-function RoomAndData({ title, action, initial, onClose, onSave }: { title: string; action: string; initial: { name: string; room: Room; fields: Field[] }; onClose: () => void; onSave: (value: { name: string; room: Room; fields: Field[] }) => Promise<void> }) {
+function RoomAndData({ title, action, initial, withFields = true, onClose, onSave }: { title: string; action: string; initial: { name: string; room: Room; fields: Field[] }; withFields?: boolean; onClose: () => void; onSave: (value: { name: string; room: Room; fields: Field[] }) => Promise<void> }) {
   const [name, setName] = useState(initial.name);
   const mode = (value: Room["width"], none: string) => (!value ? none : value.min && value.min === value.max ? "exactly" : "max");
   const [widthMode, setWidthMode] = useState(mode(initial.room.width, "full"));
@@ -549,6 +593,7 @@ function RoomAndData({ title, action, initial, onClose, onSave }: { title: strin
             </div>
           </label>
         </div>
+        {withFields && (
         <div className="field">
           <span>Data</span>
           <p className="hint">
@@ -573,6 +618,7 @@ function RoomAndData({ title, action, initial, onClose, onSave }: { title: strin
             + Field
           </button>
         </div>
+        )}
         {problem && <p className="pane-problem">{problem}</p>}
         <div className="window-foot">
           <button className="text" onClick={onClose}>

@@ -6,12 +6,13 @@ export interface Block {
   slot: string;
   shared: boolean;
   source: string;
-  /** The made-up data it was written with: what `block.self()` answers in this app. */
+  /** Its data: what `block.self()` answers in it (for a block made from a layout, the layout's fields filled). */
   sample: unknown;
-  /** Its room and the data it shows, set by the person (null and [] for a block made for one of the app's slots). */
+  /** The room it is drawn in: its layout's, or its own (null for a block made for one of the app's slots). */
   room: { width: { min?: number; max?: number } | null; height: { min?: number; max?: number } | null } | null;
-  fields: { key: string; type: string }[] | null;
-  /** The layout it was made from, whose source, room and fields it is drawn with; null for a layout or a block of its own. */
+  /** The fields its data has: its layout's; empty for a block with html of its own. */
+  fields: { key: string; type: string }[];
+  /** The layout it was made from, whose source and room it is drawn with; null for a block with html of its own. */
   layout_id: string | null;
   layout: { id: string; name: string } | null;
   created_at: string;
@@ -19,12 +20,12 @@ export interface Block {
 }
 export type BlockSummary = Omit<Block, "source"> & { bytes: number };
 
-type Row = Omit<Block, "layout"> & { layout: { id: string; name: string; source: string; room: Block["room"]; fields: Block["fields"] } | null };
-const FIELDS = "id name slot shared source sample room fields layout_id layout { id name source room fields } created_at updated_at";
+type Row = Omit<Block, "layout" | "fields"> & { layout: { id: string; name: string; source: string; room: Block["room"]; fields: Block["fields"] | null } | null };
+const FIELDS = "id name slot shared source sample room layout_id layout { id name source room fields } created_at updated_at";
 
 /** A block as it is drawn: one made from a layout takes the layout's source, room and fields as they are now. */
 const drawn = ({ layout, ...row }: Row): Block =>
-  layout ? { ...row, source: layout.source, room: layout.room, fields: layout.fields, layout: { id: layout.id, name: layout.name } } : { ...row, layout: null };
+  layout ? { ...row, source: layout.source, room: layout.room, fields: layout.fields ?? [], layout: { id: layout.id, name: layout.name } } : { ...row, fields: [], layout: null };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** A person's row, made the first time they sign in. */
@@ -56,7 +57,7 @@ export async function getBlock(userId: string, id: string): Promise<Block | null
 export async function getSharedBlock(id: string): Promise<Pick<Block, "id" | "name" | "slot" | "source" | "sample" | "room" | "fields" | "updated_at"> | null> {
   if (!UUID.test(id)) return null;
   const data = await gql<{ blocks: Row[] }>(
-    `query($id: uuid!) { blocks(where: {id: {_eq: $id}, shared: {_eq: true}}) { id name slot source sample room fields layout { id name source room fields } updated_at } }`,
+    `query($id: uuid!) { blocks(where: {id: {_eq: $id}, shared: {_eq: true}}) { id name slot source sample room layout { id name source room fields } updated_at } }`,
     { id },
     "admin",
   );
@@ -67,37 +68,12 @@ export async function getSharedBlock(id: string): Promise<Pick<Block, "id" | "na
   return block;
 }
 
-export async function createBlock(userId: string, block: { name: string; source: string; slot: string; shared: boolean; sample?: unknown; room?: Block["room"]; fields?: Block["fields"]; layout_id?: string }): Promise<Block> {
+export async function createBlock(userId: string, block: { name: string; source: string; slot: string; shared: boolean; sample?: unknown; room?: Block["room"]; layout_id?: string }): Promise<Block> {
   const data = await gql<{ insert_blocks_one: Row }>(`mutation($block: blocks_insert_input!) { insert_blocks_one(object: $block) { ${FIELDS} } }`, { block }, { userId });
   return drawn(data.insert_blocks_one);
 }
 
-/** The person's layouts: the blocks with data fields that were not made from another layout, the templates of new blocks. */
-export async function listLayouts(userId: string): Promise<BlockSummary[]> {
-  return (await listBlocks(userId)).filter((block) => !block.layout_id && (block.fields?.length ?? 0) > 0);
-}
-
-/**
- * A new block from a layout and its own data: the layout's fields, filled. A key the layout does not read is
- * refused, with the fields it has; none is required. It is drawn with the layout's source as it is now.
- */
-export async function createFromLayout(userId: string, { layout: which, name, data, shared = false }: { layout: string; name: string; data: Record<string, unknown>; shared?: boolean }): Promise<Block> {
-  const layouts = await listLayouts(userId);
-  const named = layouts.find((each) => each.id === which) ?? layouts.find((each) => each.name.toLowerCase() === which.trim().toLowerCase());
-  const layout = named ? await getBlock(userId, named.id) : null;
-  if (!layout) throw new Error(`no layout "${which}": list_layouts has their ids, names and fields`);
-  checkData(layout, data);
-  return createBlock(userId, { name, source: layout.source, slot: layout.slot, shared, sample: data, room: layout.room, fields: layout.fields, layout_id: layout.id });
-}
-
-/** The data of a block made from a layout: only the layout's fields. */
-export function checkData(layout: Pick<Block, "name" | "fields">, data: Record<string, unknown>) {
-  const keys = new Set((layout.fields ?? []).map((field) => field.key));
-  const unknown = Object.keys(data).filter((key) => !keys.has(key));
-  if (unknown.length) throw new Error(`the layout "${layout.name}" does not read ${unknown.join(", ")}: its fields are ${[...keys].join(", ") || "none"}`);
-}
-
-export async function updateBlock(userId: string, id: string, changes: Partial<Pick<Block, "name" | "source" | "slot" | "shared" | "sample" | "room" | "fields">>): Promise<Block | null> {
+export async function updateBlock(userId: string, id: string, changes: Partial<Pick<Block, "name" | "source" | "slot" | "shared" | "sample" | "room" | "layout_id">>): Promise<Block | null> {
   if (!UUID.test(id)) return null;
   const data = await gql<{ update_blocks_by_pk: Row | null }>(
     `mutation($id: uuid!, $changes: blocks_set_input!) { update_blocks_by_pk(pk_columns: {id: $id}, _set: $changes) { ${FIELDS} } }`,

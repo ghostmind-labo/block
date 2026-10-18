@@ -9,7 +9,7 @@
 import { asFunctions, DRAFT_TOOLS, fieldsText, instructions, runTurn, selfHost, slotText, type Field, type Room } from "@ghostmind-dev/block";
 import { aiFor, type ChatMessage } from "../ai/openrouter.ts";
 import { lookUpLibrary } from "../blocks/check.ts";
-import { getBlock, listBlocks } from "../blocks/store.ts";
+import { findLayout, listLayouts } from "../layouts/store.ts";
 import { env } from "../env.ts";
 import { draftAdvice, loadDraft, publishDraft, publishPlan, readDraft, slotOf, writeDraft } from "./store.ts";
 
@@ -18,17 +18,17 @@ const TOOLS = [
   {
     name: "load_draft",
     description: "Start the draft from one of the person's layouts: its source, name, room, fields and sample replace the draft's, and a publish then replaces that layout. The draft's current source is lost: ask first when it has work that was not published.",
-    parameters: { type: "object", properties: { id: { type: "string", description: "The block's id, from list_blocks" } }, required: ["id"], additionalProperties: false },
+    parameters: { type: "object", properties: { id: { type: "string", description: "The layout's id or name, from list_layouts" } }, required: ["id"], additionalProperties: false },
   },
   {
-    name: "list_blocks",
-    description: "The person's blocks, the last changed first: id, name, slot, whether it is shared. Sources are left out; get_block returns one.",
+    name: "list_layouts",
+    description: "The person's layouts (preset UIs that accept data), the last changed first: id, name, fields. get_layout returns one in full.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
-    name: "get_block",
-    description: "One of the person's blocks in full, with its source.",
-    parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"], additionalProperties: false },
+    name: "get_layout",
+    description: "One of the person's layouts in full, with its source, fields and sample.",
+    parameters: { type: "object", properties: { id: { type: "string", description: "Its id or name" } }, required: ["id"], additionalProperties: false },
   },
   {
     name: "list_libraries",
@@ -40,7 +40,7 @@ const TOOLS = [
 /** What a block of this app may ask for: the object it shows. Here, the draft's made-up data. */
 export const BLOCK_HOST = selfHost("block");
 
-const ROLE = `You are the layout chat of block (${env.publicUrl}), a playground where layouts are made for the apps that show them (Potion, tags.city, Relay). The person makes ONE layout here, for a room and a set of data they set themselves (below): you write it in their live draft, which is drawn next to this chat, in that room, and drawn again each time you write it. They watch it change.
+const ROLE = `You are the layout chat of block (${env.publicUrl}), a playground where layouts are made for the apps that show them (Potion, tags.city, Relay). A layout is a preset UI that accepts data, not a block. The person makes ONE layout or ONE block here (below), for a room and data they set themselves: you write it in their live draft, which is drawn next to this chat, in that room, and drawn again each time you write it. They watch it change.
 
 - The layout shows one object, which it gets with \`await block.self()\`: never written into the source. Its fields are the person's (below); in an app, each is one of the app's own values (potion.self().name). Read only those fields. While it is made, self() answers the draft's sample: made-up data you write with write_draft (sample), with exactly those fields, realistic and specific (real-sounding names, dates, numbers), never lorem ipsum. Write the sample first, then the layout that reads it. Nothing is required: a field that is missing is simply not drawn.
 - Everything is yours to change when the person asks: the look, the fields (what self() answers, with their kinds), the room (width and height), the sample. write_draft takes any of them; give the fields and the sample together when the fields change, so the sample keeps exactly the fields.
@@ -55,15 +55,23 @@ const ROLE = `You are the layout chat of block (${env.publicUrl}), a playground 
 async function system(userId: string) {
   const draft = await readDraft(userId);
   const slot = slotOf(draft);
+  const what = draft.kind === "block" ? "block" : "layout";
   const now = draft.source.trim()
-    ? `THE DRAFT NOW: "${draft.name ?? "untitled"}", ${Buffer.byteLength(draft.source)} bytes${draft.based_on ? `, started from the block "${draft.based_on.name}" (a publish replaces it)` : ", not published"}. read_draft gives its source.`
-    : "THE DRAFT NOW: empty. Start it with write_draft: the sample, then the block.";
+    ? `THE DRAFT NOW: a ${what}, "${draft.name ?? "untitled"}", ${Buffer.byteLength(draft.source)} bytes${draft.based_on ? `, started from the ${what} "${draft.based_on.name}" (a publish replaces it)` : ", not published"}. read_draft gives its source.`
+    : `THE DRAFT NOW: an empty ${what}. Start it with write_draft: the sample, then the source.`;
+  const kind =
+    draft.kind === "block"
+      ? draft.layout
+        ? `YOU ARE MAKING A BLOCK from the layout "${draft.layout.name}": finished content for the gallery, to share or embed. Its look is the layout's: what you write is its DATA (write_draft sample), real and specific (the person's own values; ask for what you do not know, never make up a fact about a real place or person). When the person asks to change its look, say first that the block then stops following the layout, then write its source.`
+        : "YOU ARE MAKING A BLOCK: finished content for the gallery, to share or embed, with html of its own. Its data is in its sample and read with block.self(), like a layout's; it is the content itself, so make it real and specific. Its fields are what you put in the sample."
+      : "YOU ARE MAKING A LAYOUT: a mold, a preset UI that accepts data, never shown on its own. It knows nothing of any real data: you have no access to the app's data or tools, only the draft, and every value it is drawn with is made up (the sample). It declares what it accepts (its fields) and reads each with self(); real data reaches it only later, when a block or an app fills it. Keep every value in self(), none in the source.";
   return [
     ROLE,
+    kind,
     instructions({
       slots: slot ? [slot] : [],
       host: BLOCK_HOST,
-      calls: { self: `the object this layout shows, with the fields ${draft.fields.length ? fieldsText(draft.fields) : "(none set yet: ask the person which data it shows)"}. While it is made: the draft's sample (null until you write one)` },
+      calls: { self: `the object this ${what} shows, with the fields ${draft.fields.length ? fieldsText(draft.fields) : "(none set yet: ask the person which data it shows)"}. While it is made: the draft's sample (null until you write one)` },
       sample: draft.sample ?? undefined,
     }),
     now,
@@ -88,17 +96,17 @@ async function run(userId: string, name: string, args: Record<string, unknown>) 
       return { written: true, version: draft.version, name: draft.name, room: slotText(slotOf(draft)), fields: fieldsText(draft.fields), problems: problems.length ? problems : undefined, advice: advice.length ? advice : undefined };
     }
     case "publish_draft": {
-      const block = await publishDraft(userId, { name: text(args.name), as_new: args.as_new === true });
-      return { published: true, id: block.id, name: block.name, url: `${env.publicUrl}/b/${block.id}` };
+      const kept = await publishDraft(userId, { name: text(args.name), as_new: args.as_new === true });
+      return { published: true, ...kept, ...(kept.kind === "block" ? { url: `${env.publicUrl}/b/${kept.id}` } : {}) };
     }
     case "load_draft": {
       const draft = await loadDraft(userId, String(args.id ?? ""));
       return { loaded: true, name: draft.name, version: draft.version };
     }
-    case "list_blocks":
-      return { blocks: await listBlocks(userId) };
-    case "get_block":
-      return (await getBlock(userId, String(args.id ?? ""))) ?? { error: "no block of the person's has that id: list_blocks has the ids" };
+    case "list_layouts":
+      return { layouts: await listLayouts(userId) };
+    case "get_layout":
+      return (await findLayout(userId, String(args.id ?? ""))) ?? { error: "no layout of the person's by that id or name: list_layouts has them" };
     case "list_libraries":
       return lookUpLibrary(text(args.name));
     default:

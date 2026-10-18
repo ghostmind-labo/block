@@ -3,9 +3,9 @@ import { mount, type Mounted } from "@ghostmind-dev/block/web";
 import { useEffect, useRef, useState } from "react";
 
 /** The directive spellings read here: the package's own, and each app's, so a block written for one of them is shown as it is. */
-const DIRECTIVES = ["potion", "relay", "tags"];
+export const DIRECTIVES = ["potion", "relay", "tags"];
 // One loader for the page: two blocks that name the same library at the same moment make one request.
-const loader = makeLoader();
+export const loader = makeLoader();
 /** What a block here may ask for: `block.self()`, the object it shows. In this app that is made-up data, the block's sample. */
 const HOST = selfHost("block");
 

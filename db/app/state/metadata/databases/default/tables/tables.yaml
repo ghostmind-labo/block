@@ -1,4 +1,5 @@
 - "!include public_ai_connection.yaml"
 - "!include public_blocks.yaml"
 - "!include public_drafts.yaml"
+- "!include public_layouts.yaml"
 - "!include public_users.yaml"

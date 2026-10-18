@@ -79,7 +79,23 @@ export interface Field {
   key: string;
   type: string;
 }
+/** A preset UI that accepts data (as in Potion): never shown on its own; blocks may be made from it. */
+export interface Layout {
+  id: string;
+  name: string;
+  source: string;
+  room: Room | null;
+  fields: Field[];
+  sample: Record<string, unknown> | null;
+  updated_at: string;
+}
+export type LayoutSummary = Omit<Layout, "source" | "sample">;
+
 export interface Draft {
+  /** What the studio is making: a layout, or a block for the gallery. */
+  kind: "layout" | "block";
+  /** A block draft: the layout whose look it inherits. */
+  layout: { id: string; name: string; source: string } | null;
   source: string;
   name: string | null;
   slot: string;
@@ -111,7 +127,21 @@ export const connectOpenRouter = (code: string, verifier: string) => call<AiStat
 export const disconnectAi = () => call<void>("/api/ai", { method: "DELETE" });
 /** The draft, or undefined while its version is still `since`. */
 export const getDraft = (since?: number) => call<(Draft & { problems: string[] }) | undefined>(`/api/draft${since === undefined ? "" : `?since=${since}`}`);
-export const writeDraft = (changes: { source?: string; name?: string | null; sample?: Record<string, unknown> | null; room?: Room; fields?: Field[]; from?: string; fresh?: { room: Room; fields: Field[]; name: string | null } }) => call<{ draft: Draft; problems: string[] }>("/api/draft", { method: "PATCH", body: JSON.stringify(changes) });
-export const publishDraft = (options: { name?: string; as_new?: boolean } = {}) => call<Block>("/api/draft/publish", { method: "POST", body: JSON.stringify(options) });
+export const writeDraft = (changes: {
+  source?: string;
+  name?: string | null;
+  sample?: Record<string, unknown> | null;
+  room?: Room;
+  fields?: Field[];
+  from?: string;
+  fresh?: { room: Room; fields: Field[]; name: string | null };
+  fresh_block?: { layout?: string | null; room?: Room; name?: string | null };
+  from_block?: string;
+}) => call<{ draft: Draft; problems: string[] }>("/api/draft", { method: "PATCH", body: JSON.stringify(changes) });
+export const publishDraft = (options: { name?: string; as_new?: boolean } = {}) => call<{ kind: "layout" | "block"; id: string; name: string }>("/api/draft/publish", { method: "POST", body: JSON.stringify(options) });
 export const chatTurn = (input: { messages: ChatMessage[]; text?: string; approve?: { callId: string; approved: boolean } }, signal?: AbortSignal) =>
   call<ChatTurn>("/api/chat", { method: "POST", body: JSON.stringify(input), signal });
+
+export const listLayouts = () => call<{ layouts: LayoutSummary[] }>("/api/layouts").then((data) => data.layouts);
+export const getLayout = (id: string) => call<Layout>(`/api/layouts/${id}`);
+export const deleteLayout = (id: string) => call<void>(`/api/layouts/${id}`, { method: "DELETE" });
