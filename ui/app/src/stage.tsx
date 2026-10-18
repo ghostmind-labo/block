@@ -99,8 +99,9 @@ function Room({ slot, children }: { slot: Slot; children: ReactNode }) {
     return () => seen.disconnect();
   }, []);
   return (
-    <div className="place place--room">
-      <div className="room-frame" ref={box} style={{ width: slot.width?.max ? `min(100%, ${slot.width.max}px)` : "100%" }}>
+    // The ground fits the layout: as wide as its room allows, never a wide empty canvas around a small layout.
+    <div className={`place place--room${slot.width?.max ? "" : " place--room-full"}`}>
+      <div className="room-frame" ref={box} style={{ width: slot.width?.max ? `${slot.width.max}px` : "100%", maxWidth: "100%" }}>
         {children}
       </div>
       {size && size.height > 0 && (

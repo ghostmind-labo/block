@@ -188,7 +188,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visi
 .layouts .tabs-line button[aria-selected="true"] { color: var(--m-ink); border-bottom-color: var(--m-ink); }
 .status { margin-left: auto; font-size: 12.5px; color: var(--m-muted); }
 .layouts .stage { border: 0; border-radius: 0; background: transparent; }
-.place--room { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 32px 32px 14px; border: 1px solid var(--m-line); border-radius: 8px; background-color: var(--m-surface); background-image: radial-gradient(var(--m-line) 1px, transparent 1px); background-size: 16px 16px; }
+.place--room { display: flex; flex-direction: column; align-items: center; gap: 10px; width: fit-content; max-width: 100%; margin: 0 auto; padding: 4px 0 0; }
+.place--room-full { width: auto; }
 .room-frame { background: var(--m-surface); outline: 1px solid var(--m-muted); outline-offset: 0; }
 .room-size { margin: 0; font: 11px var(--m-mono); color: var(--m-muted); }
 .live .place--room { transition: box-shadow .5s; }
