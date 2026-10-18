@@ -1,10 +1,12 @@
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import express, { json, type NextFunction, type Request, type Response } from "express";
+import { make } from "./api/make.ts";
 import { api } from "./api/routes.ts";
 import { currentUser, requireUser, type User } from "./auth/google.ts";
 import { oauth } from "./auth/oauth.ts";
 import { env } from "./env.ts";
+import { ApiError } from "./errors.ts";
 import { registerTools } from "./mcp/tools.ts";
 
 const app = express();
@@ -22,6 +24,7 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 app.use(oauth);
+app.use(make);
 app.use(api);
 
 /**
@@ -58,6 +61,11 @@ app.all("/mcp", (_req, res) => {
 });
 
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
+  // A refusal (not connected, a model gone, an empty draft) is said as it is; anything else is logged.
+  if (error instanceof ApiError) {
+    if (!res.headersSent) res.status(error.status).json({ error: error.code, message: error.message });
+    return;
+  }
   console.error(error);
   if (!res.headersSent) res.status(500).json({ error: "internal_error", message: error.message });
 });

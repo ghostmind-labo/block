@@ -3,6 +3,8 @@ import { createRootRoute, createRoute, createRouter, Outlet, RouterProvider } fr
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { SignedOut } from "./auth";
+import { EmbedPage } from "./embed";
+import { AiCallbackPage, MakePage } from "./make";
 import { BlockPage, CallbackPage, HomePage, TryPage } from "./pages";
 import "./styles.css";
 
@@ -25,6 +27,9 @@ const routes = [
   createRoute({ getParentRoute: () => root, path: "/try", component: TryPage }),
   createRoute({ getParentRoute: () => root, path: "/b/$id", component: BlockPage }),
   createRoute({ getParentRoute: () => root, path: "/callback", component: CallbackPage }),
+  createRoute({ getParentRoute: () => root, path: "/make", component: MakePage }),
+  createRoute({ getParentRoute: () => root, path: "/ai/callback", component: AiCallbackPage }),
+  createRoute({ getParentRoute: () => root, path: "/e/$id", component: EmbedPage }),
 ];
 const router = createRouter({ routeTree: root.addChildren(routes) });
 

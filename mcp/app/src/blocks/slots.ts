@@ -1,4 +1,4 @@
-import { defineSlot, slotText, type Slot } from "@ghostmind-dev/block";
+import { defineSlot, type Slot } from "@ghostmind-dev/block";
 
 /**
  * The places this app shows a block in. Each stands for a place one of the apps has (a note in Potion, the box
@@ -18,5 +18,3 @@ export const DEFAULT_SLOT = "page";
 export const SLOT_NAMES = SLOTS.map((slot) => slot.name) as [string, ...string[]];
 export const slotNamed = (name: string) => SLOTS.find((slot) => slot.name === name);
 
-/** The slots as they are told to whoever writes a block. */
-export const slotsInWords = () => SLOTS.map((slot) => `- ${slotText(slot)}`).join("\n");

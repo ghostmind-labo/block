@@ -1,4 +1,4 @@
-import { makeLoader, type Loaded, type Slot } from "@ghostmind-dev/block";
+import { makeLoader, selfHost, type Loaded, type Slot } from "@ghostmind-dev/block";
 import { mount, type Mounted } from "@ghostmind-dev/block/web";
 import { useEffect, useRef, useState } from "react";
 
@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 const DIRECTIVES = ["potion", "relay", "tags"];
 // One loader for the page: two blocks that name the same library at the same moment make one request.
 const loader = makeLoader();
+/** What a block here may ask for: `block.self()`, the object it shows. In this app that is made-up data, the block's sample. */
+const HOST = selfHost("block");
 
 export type Scheme = "light" | "dark";
 /** What the app gives every block first: its type and its ink. The block's own styles win over these. */
@@ -23,14 +25,16 @@ export interface Report {
 export const NO_REPORT: Report = { state: "loading", libraries: [], errors: [], size: null };
 
 /** One block in its frame, kept inside its slot. Everything is the package's `mount`; this only ties it to React. */
-export function BlockFrame({ html, slot, scheme, title, onReport }: { html: string; slot: Slot; scheme: Scheme; title: string; onReport?: (report: Report) => void }) {
+export function BlockFrame({ html, slot, scheme, title, sample, onReport, bare = false }: { html: string; slot: Slot; scheme: Scheme; title: string; sample?: unknown; onReport?: (report: Report) => void; bare?: boolean }) {
+  // A block asks for its object once: a new sample draws it again.
+  const sampleText = JSON.stringify(sample ?? null);
   const host = useRef<HTMLDivElement>(null);
   const block = useRef<Mounted | null>(null);
   const tell = useRef(onReport);
   tell.current = onReport;
   // A block that is as tall as its content can be shown on the whole screen for a while. One that fills its
   // place is already the window, and one that is only looked at has nothing to scroll.
-  const expandable = !slot.fill && slot.interactive;
+  const expandable = !bare && !slot.fill && slot.interactive;
   const [expanded, setExpanded] = useState(false);
   const wide = useRef(expanded);
   wide.current = expanded;
@@ -46,6 +50,8 @@ export function BlockFrame({ html, slot, scheme, title, onReport }: { html: stri
     say({});
     mount(host.current!, html, {
       loader,
+      host: HOST,
+      handlers: { self: () => JSON.parse(sampleText) },
       names: DIRECTIVES,
       slot,
       scheme,
@@ -68,7 +74,7 @@ export function BlockFrame({ html, slot, scheme, title, onReport }: { html: stri
       block.current = null;
       mounted?.destroy();
     };
-  }, [html, slot, scheme, title]);
+  }, [html, slot, scheme, title, sampleText]);
 
   useEffect(() => {
     block.current?.expand(expanded);
