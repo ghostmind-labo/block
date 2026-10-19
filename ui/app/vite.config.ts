@@ -12,15 +12,18 @@ const watchLib = (): Plugin => ({
   configureServer(server) {
     // And a file of lib/ is always sent whole and transformed again: a page never keeps a copy from before a sync
     // (a "not modified" for a module the watcher had not seen change yet). The package is a few small files.
-    // no-store, because the tunnel's Cloudflare otherwise adds max-age=14400 and the browser keeps a stale copy.
+    // Every file of the page is sent no-store: the tunnel's Cloudflare otherwise adds max-age=14400, and the
+    // browser kept an old stylesheet or an old package for hours. What the server answers (/api…) keeps its own.
     server.middlewares.use((req, res, next) => {
       const path = decodeURIComponent((req.url ?? "").split("?")[0]);
-      if (path.startsWith(`/@fs${LIB}`)) {
-        delete req.headers["if-none-match"];
+      if (!/^\/(?:api|mcp|oauth|\.well-known)(?:\/|$)/.test(path)) {
         // vite sets its own no-cache after this, which Cloudflare replaces: keep ours
         const set = res.setHeader.bind(res);
         res.setHeader = (name, value) => set(name, name.toLowerCase() === "cache-control" ? "no-store" : value);
         res.setHeader("Cache-Control", "no-store");
+      }
+      if (path.startsWith(`/@fs${LIB}`)) {
+        delete req.headers["if-none-match"];
         const module = server.moduleGraph.getModuleById(path.slice("/@fs".length));
         if (module) server.moduleGraph.invalidateModule(module);
       }
