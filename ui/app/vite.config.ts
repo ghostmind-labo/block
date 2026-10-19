@@ -1,4 +1,6 @@
 import react from "@vitejs/plugin-react";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
@@ -41,10 +43,61 @@ const watchLib = (): Plugin => ({
 // The web app and the block server are one host. The tunnel sends the server's paths to it, in dev and in
 // prod; this proxy does the same for someone reaching the web app directly (localhost:5106, the pod).
 const server = process.env.MCP_URL ?? "http://localhost:3105";
+
+// A shared block's address, pasted in X, iMessage or Slack, shows a card: its name and what it is. The link
+// previewers read the page's tags without running it, so the page server writes them into /b/<id> itself.
+const esc = (text: string) => text.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+const blockCard = (): Plugin => {
+  const tagged = async (url: string, host: string | undefined, proto: string | undefined, html: string) => {
+    const id = /^\/b\/([0-9a-f-]{36})\/?(?:\?.*)?$/i.exec(url)?.[1];
+    if (!id) return html;
+    const block = await fetch(`${server}/api/blocks/${id}`)
+      .then((answer) => (answer.ok ? (answer.json() as Promise<{ name: string; shared?: boolean }>) : null))
+      .catch(() => null);
+    if (!block?.shared) return html;
+    const origin = `${proto ?? "https"}://${host ?? "block.ghostmind.dev"}`;
+    const name = esc(block.name);
+    const description = "A live html block: open it to see it move.";
+    const tags = [
+      `<title>${name}</title>`,
+      `<meta name="description" content="${description}" />`,
+      `<meta property="og:type" content="website" />`,
+      `<meta property="og:site_name" content="block" />`,
+      `<meta property="og:title" content="${name}" />`,
+      `<meta property="og:description" content="${description}" />`,
+      `<meta property="og:url" content="${origin}/b/${id}" />`,
+      `<meta name="twitter:card" content="summary" />`,
+      `<meta name="twitter:title" content="${name}" />`,
+      `<meta name="twitter:description" content="${description}" />`,
+    ].join("\n    ");
+    return html.replace(/<title>[^<]*<\/title>/, tags);
+  };
+  const forBlocks = (read: (url: string) => Promise<string>) => (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+    const url = req.url ?? "";
+    if (req.method !== "GET" || !url.startsWith("/b/")) return next();
+    const proto = String(req.headers["x-forwarded-proto"] ?? "").split(",")[0] || undefined;
+    read(url)
+      .then((html) => tagged(url, req.headers.host, proto, html))
+      .then((html) => {
+        res.setHeader("content-type", "text/html; charset=utf-8");
+        res.end(html);
+      })
+      .catch(next);
+  };
+  return {
+    name: "block-card",
+    configureServer(dev) {
+      dev.middlewares.use(forBlocks(async (url) => dev.transformIndexHtml(url, await readFile(fileURLToPath(new URL("index.html", import.meta.url)), "utf8"))));
+    },
+    configurePreviewServer(preview) {
+      preview.middlewares.use(forBlocks(() => readFile(fileURLToPath(new URL("dist/index.html", import.meta.url)), "utf8")));
+    },
+  };
+};
 const proxy = Object.fromEntries(["/mcp", "/oauth", "/.well-known", "/api"].map((path) => [path, { target: server, changeOrigin: false }]));
 
 export default defineConfig({
-  plugins: [react(), watchLib()],
+  plugins: [react(), watchLib(), blockCard()],
   // allowedHosts: the dev tunnel reaches this server under its public name
   server: { proxy, allowedHosts: true, fs: { allow: ["../.."] }, watch: { usePolling: true } },
   preview: { proxy, allowedHosts: true },
