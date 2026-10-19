@@ -62,7 +62,7 @@ The rules common to every app's blocks (the sandbox, libraries, sizing, the grou
   The renderer is sized from `#stage` in a `ResizeObserver`. A block with no height at all is shown 16:9 of its width by the package, but that is a guess: give it the shape you mean.
 - **The room arrives late, and changes.** A block starts before its frame has its real size. Size what a script measures from its parent inside a `ResizeObserver`, and lay the rest out with `%`, flex, grid and `clamp()`: it must hold at the narrowest and the widest the room allows.
 - **The ground is not white.** The page may be light or dark. Either inherit (transparent ground, `currentColor`, greys such as `rgba(127,127,127,.25)`), or paint a ground of your own and every colour on it.
-- **Nothing remote.** A picture is inline svg, a canvas drawing, or a `data:` address. A remote `<img>` shows nothing.
+- **Pictures by address show; nothing else remote does.** Write the address the person gives as it is, `<img src="https://…">`: the page brings it in, and through block's server when its host refuses other sites. A picture whose host does not answer is left out and said under the block. Fonts, videos and css `url()` by address are not brought.
 - **An empty box is a thrown error.** The page shows the error under the frame; ask the person what it says if the block is blank, and do not guess.
 - **A library that could not be brought saves nothing.** The answer names it. Fix the name or the version, or leave it out.
 

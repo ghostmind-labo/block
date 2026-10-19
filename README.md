@@ -126,6 +126,29 @@ A block names what it needs on its first lines and gets each as a global:
 
 Any package on npm can be named. The frame is what keeps a block in, not a list of names. The catalogue (`lib/app/src/catalogue.js`) is what was learned about the ones that were tried.
 
+## Pictures by address
+
+A block may show a picture by its address, written as it is: `<img src="https://…">`. The frame still loads nothing; the page brings each address written in the source before the frame is made, and writes it in as `data:`. An address a script makes at run time is refused by the frame, as before.
+
+```js
+import { makePictures } from "@ghostmind-dev/block";
+const pictures = makePictures({ relay: (address) => fetch(`/api/picture?url=${encodeURIComponent(address)}`) });
+await mount(container, html, { loader, pictures, … });          // bringPictures(source, pictures) for an html of your own
+```
+
+The page fetches from the picture's host. A host that refuses other sites (no CORS) is asked through the app's own route, which says who may ask and calls the package:
+
+```js
+import { relayPicture, PictureError } from "@ghostmind-dev/block/server";
+app.get("/api/picture", async (req, res) => {
+  // who may ask is the app's: here, someone signed in
+  const { type, bytes } = await relayPicture(String(req.query.url));   // https, public addresses only, pictures only, 5 MB
+  res.set({ "content-type": type, "cache-control": "private, max-age=86400" }).send(Buffer.from(bytes));
+});
+```
+
+Nothing is kept by the app: the picture comes from its host each time it is shown (the browser keeps it a while). An embed made with `bringPictures` carries its pictures inside.
+
 ## Slots
 
 A slot is a place of an app and the room a block has there. The app declares it once; `mount` keeps the block inside it, and `slotText` says the same numbers to whoever writes the block.
@@ -205,7 +228,7 @@ A dev routine refuses a cluster that has no shared Postgres (`k8s/dev-setup.sh`)
 
   | App | Web | iOS | Version it pins |
   |---|---|---|---|
-  | block | `ui/app/src/frame.tsx` (`mount`), `make.tsx` (the chat), `embed.tsx` | none yet | 0.4.0 |
+  | block | `ui/app/src/frame.tsx` (`mount`, `makePictures`), `make.tsx` (the chat), `embed.ts`; `mcp/app/src/api/routes.ts` (`/api/picture`) | none yet | 0.5.0 |
   | Potion | `ui/app/src/lib/potion-block.ts`, `components/HtmlBlockRenderer.tsx`, `MarkdownPreview.tsx` (the feed card) | `native/app/components/elements/HtmlBlock.tsx` | web 0.2.0, iOS 0.3.1 |
   | tags.city | `shared/pure/layout-frame.ts`, `city/app/src/components/layouts/LayoutFrame.tsx`, `app/map/hover-layout.ts` | `native/app/components/elements/LayoutView` | 0.3.1 |
   | Relay | `api/app/src/ui/frame.js`, `dashboards.js` (the package is served to the page from `/ui/block@<version>/`) | `native/app/utils/block.ts`, `app/dashboard/[id].tsx` | 0.3.1 |
