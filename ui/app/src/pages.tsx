@@ -216,6 +216,8 @@ export function BlockPage() {
 
   const slot = slotFor(block, slots.slots);
   // Someone a block was shared with sees the block, in its room, and nothing to change.
+  // The picture of its link card is taken of this view (`?card`): the block alone, on a 1200×630 ground.
+  if (new URLSearchParams(location.search).has("card")) return <CardView block={block} slot={slot} />;
   if (!block.mine) {
     return (
       <div className="shared">
@@ -229,6 +231,33 @@ export function BlockPage() {
   }
 
   return <OwnBlock block={block} slots={slots.slots} onRemoved={() => void navigate({ to: "/" })} />;
+}
+
+/**
+ * A shared block as the picture of its link card: alone on a 1200×630 ground, as wide as its room allows, scaled
+ * down to fit when it is bigger. `data-card-ready` says it has drawn itself and had a moment to settle, for the
+ * browser that takes the screenshot (mcp blocks/cards.ts).
+ */
+function CardView({ block, slot }: { block: Block; slot: Slot }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!ready) return;
+    const later = setTimeout(() => {
+      const size = box.current?.getBoundingClientRect();
+      if (size) setScale(Math.min(1, 1104 / size.width, 534 / size.height));
+      document.documentElement.setAttribute("data-card-ready", "");
+    }, 1500);
+    return () => clearTimeout(later);
+  }, [ready]);
+  return (
+    <div className="card-view">
+      <div ref={box} className="card-block" style={{ width: slot.width?.max ? Math.min(slot.width.max, 1104) : 1104, transform: `scale(${scale})` }}>
+        <BlockFrame html={block.source} slot={slot} scheme="dark" title={block.name} sample={block.sample} bare onReport={(report) => report.state === "shown" && setReady(true)} />
+      </div>
+    </div>
+  );
 }
 
 /** One of the person's blocks, in the gallery: drawn as it is, with Share, Embed (html that needs nothing), Edit (in the chat) and Delete. */

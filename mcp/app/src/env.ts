@@ -18,6 +18,9 @@ export const env = {
   // the shared users service (auth/shared-users.ts)
   usersEndpoint: required("DB_USERS_ENDPOINT"),
   usersSecret: required("DB_USERS_SECRET"),
+  // a shared block's card picture (blocks/cards.ts); without them, a card has no picture
+  cloudflareAccount: process.env.CLOUDFLARE_ACCOUNT_ID ?? "",
+  cloudflareBrowserToken: process.env.CLOUDFLARE_BROWSER_TOKEN ?? "",
 };
 
 /** Hasura's JWT secret is a JSON blob {"type":"HS256","key":"..."}. */

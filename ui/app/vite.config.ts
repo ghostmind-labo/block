@@ -66,7 +66,11 @@ const blockCard = (): Plugin => {
       `<meta property="og:title" content="${name}" />`,
       `<meta property="og:description" content="${description}" />`,
       `<meta property="og:url" content="${origin}/b/${id}" />`,
-      `<meta name="twitter:card" content="summary" />`,
+      `<meta property="og:image" content="${origin}/api/blocks/${id}/card.png" />`,
+      `<meta property="og:image:width" content="1200" />`,
+      `<meta property="og:image:height" content="630" />`,
+      `<meta name="twitter:card" content="summary_large_image" />`,
+      `<meta name="twitter:image" content="${origin}/api/blocks/${id}/card.png" />`,
       `<meta name="twitter:title" content="${name}" />`,
       `<meta name="twitter:description" content="${description}" />`,
     ].join("\n    ");
