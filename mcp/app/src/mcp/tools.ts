@@ -7,7 +7,7 @@ import { CONTRACT } from "../blocks/contract.ts";
 import { DEFAULT_SLOT, SLOT_NAMES, SLOTS, slotNamed } from "../blocks/slots.ts";
 import { createBlock, deleteBlock, getBlock, listBlocks, updateBlock } from "../blocks/store.ts";
 import { checkData, createFromLayout, deleteLayout, findLayout, listLayouts } from "../layouts/store.ts";
-import { draftAdvice, loadBlockDraft, loadDraft, newBlockDraft, newDraft, publishDraft, publishPlan, readDraft, slotOf, writeDraft } from "../drafts/store.ts";
+import { draftAdvice, loadBlockDraft, loadDraft, newBlockDraft, newDraft, readDraft, saveDraft, savePlan, slotOf, writeDraft } from "../drafts/store.ts";
 import { env } from "../env.ts";
 
 const Side = z.object({ min: z.number().int().optional(), max: z.number().int().optional() }).nullable();
@@ -123,7 +123,7 @@ export function registerTools(server: McpServer, user: User) {
     run(async ({ id, ...changes }: { id: string; name?: string; source?: string; slot?: string; shared?: boolean }) => {
       if (changes.source !== undefined) {
         const current = await getBlock(uid, id);
-        if (current?.layout) throw new Error(`"${current.name}" is drawn with the layout "${current.layout.name}": change that layout (load_draft ${current.layout.id}, then publish_draft), and every block made from it follows. set_block_data changes this block's own data`);
+        if (current?.layout) throw new Error(`"${current.name}" is drawn with the layout "${current.layout.name}": change that layout (load_draft ${current.layout.id}, then save_draft), and every block made from it follows. set_block_data changes this block's own data`);
       }
       const libraries = changes.source === undefined ? undefined : await checked(changes.source);
       const set = Object.fromEntries(Object.entries(changes).filter(([, value]) => value !== undefined));
@@ -168,7 +168,7 @@ export function registerTools(server: McpServer, user: User) {
     "new_draft",
     {
       title: "Start a new layout or block",
-      description: `Starts a new live draft. kind "layout" (the default): a preset UI that accepts data, never shown on its own, with the room the person gives it and the data it shows. kind "block": finished content for the gallery (to share or embed), empty in the room given, or from a layout (its look, room and fields; you then write its data). The room: a width (exact or at most, in px; none: as wide as its place) and a height (exact or at most; none: as tall as its content). The data: the fields \`block.self()\` answers (in an app, each one is one of the app's own values, like potion.self().name). Ask the person for both when they did not say. What the draft held is lost: ask first when it was not published. ${LIVE}`,
+      description: `Starts a new live draft. kind "layout" (the default): a preset UI that accepts data, never shown on its own, with the room the person gives it and the data it shows. kind "block": finished content for the gallery (to share or embed), empty in the room given, or from a layout (its look, room and fields; you then write its data). The room: a width (exact or at most, in px; none: as wide as its place) and a height (exact or at most; none: as tall as its content). The data: the fields \`block.self()\` answers (in an app, each one is one of the app's own values, like potion.self().name). Ask the person for both when they did not say. What the draft held is lost: ask first when it was not saved. ${LIVE}`,
       inputSchema: z.object({
         name: z.string().min(1).max(120).optional(),
         width: z.number().int().optional().describe("Exactly this many px wide"),
@@ -194,7 +194,7 @@ export function registerTools(server: McpServer, user: User) {
     "write_draft",
     {
       title: "Write the live draft",
-      description: `Writes the person's live draft: the whole source (it replaces what is there), its name, and, for a block, its sample (its own data, what \`await block.self()\` answers in it: real and specific; a layout has none, it is drawn with its fields' standard placeholders). ${LIVE} Its room and its fields may be written too, when the person asks; the sample keeps exactly the fields. Write a first version early, then step by step. The answer lists what is seen wrong in the source; fix it in the next write. Nothing is kept as a block until publish_draft.\n\n${CONTRACT}`,
+      description: `Writes the person's live draft: the whole source (it replaces what is there), its name, and, for a block, its sample (its own data, what \`await block.self()\` answers in it: real and specific; a layout has none, it is drawn with its fields' standard placeholders). ${LIVE} Its room and its fields may be written too, when the person asks; the sample keeps exactly the fields. Write a first version early, then step by step. The answer lists what is seen wrong in the source; fix it in the next write. Nothing is kept until save_draft.\n\n${CONTRACT}`,
       inputSchema: z.object({
         source: sourceSchema.optional(),
         name: z.string().min(1).max(120).optional(),
@@ -214,7 +214,7 @@ export function registerTools(server: McpServer, user: User) {
     "load_draft",
     {
       title: "Open a layout or a block in the draft",
-      description: `Starts the live draft from one of the person's layouts (layout) or blocks (block): it replaces the draft's content, and a publish then replaces that layout or block. What the draft held is lost: ask the person first when it was not published. ${LIVE}`,
+      description: `Starts the live draft from one of the person's layouts (layout) or blocks (block): it replaces the draft's content, and a save then replaces that layout or block. What the draft held is lost: ask the person first when it was not saved. ${LIVE}`,
       inputSchema: z.object({ layout: z.string().optional().describe("A layout's id or name, from list_layouts"), block: z.string().optional().describe("A block's id, from list_blocks"), id: z.string().optional().describe("Same as layout (older callers)") }),
     },
     run(async ({ layout, block, id }: { layout?: string; block?: string; id?: string }) => {
@@ -225,20 +225,20 @@ export function registerTools(server: McpServer, user: User) {
   );
 
   server.registerTool(
-    "publish_draft",
+    "save_draft",
     {
-      title: "Publish the live draft",
-      description: "Keeps the live draft: a layout as a layout, a block as a block in the gallery. It replaces the one the draft was started from (unless as_new), or makes a new one. Only when the person asks. Without confirm: true it publishes nothing and answers what it would do, to tell the person first.",
+      title: "Save the live draft",
+      description: "Saves the live draft: a layout as a layout, a block as a block in the gallery, private until it is shared (update_block shared). It replaces the one the draft was started from (unless as_new), or makes a new one. Only when the person asks. Without confirm: true it saves nothing and answers what it would do, to tell the person first.",
       inputSchema: z.object({
-        name: z.string().min(1).max(120).optional().describe("The block's name, when it is not the draft's"),
-        as_new: z.boolean().optional().describe("A new block even when the draft was started from one"),
+        name: z.string().min(1).max(120).optional().describe("Its name, when it is not the draft's"),
+        as_new: z.boolean().optional().describe("A new one even when the draft was started from one"),
         confirm: z.boolean().optional().describe("true once the person agreed to what the answer without it said"),
       }),
     },
     run(async ({ confirm, ...args }: { name?: string; as_new?: boolean; confirm?: boolean }) => {
-      if (!confirm) return { published: false, would: publishPlan(await readDraft(uid), args), note: "Tell the person, then call again with confirm: true." };
-      const kept = await publishDraft(uid, args);
-      return { published: true, ...kept, ...(kept.kind === "block" ? { url: urlOf(kept.id) } : {}) };
+      if (!confirm) return { saved: false, would: savePlan(await readDraft(uid), args), note: "Tell the person, then call again with confirm: true." };
+      const kept = await saveDraft(uid, args);
+      return { saved: true, ...kept, ...(kept.kind === "block" ? { url: urlOf(kept.id) } : {}) };
     }),
   );
 

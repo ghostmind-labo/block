@@ -72,7 +72,8 @@ declare module "@ghostmind-dev/block" {
   export function checkFields(fields: unknown): Field[];
   export function fieldsText(fields: unknown): string;
   export function asFunctions(tools: readonly DraftTool[]): { type: "function"; function: { name: string; description: string; parameters: Record<string, unknown> } }[];
-  export function publishing(draft: { name?: string | null; based_on?: { id: string; name: string; used_by?: number } | null }, args?: { name?: string; as_new?: boolean }): string;
+  export function saving(draft: { kind?: string; name?: string | null; based_on?: { id: string; name: string; used_by?: number } | null }, args?: { name?: string; as_new?: boolean }): string;
+  export const publishing: typeof saving;
   export interface Pending {
     callId: string;
     tool: string;

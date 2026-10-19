@@ -3,7 +3,7 @@ name: block
 description: >-
   Make html blocks and layouts through the block MCP: a block from a layout and its data (list_layouts,
   create_block_from_layout, set_block_data), a layout written live (new_draft, write_draft, read_draft,
-  load_draft, publish_draft), or a one-off block (create_block, update_block, get_block, list_blocks).
+  load_draft, save_draft), or a one-off block (create_block, update_block, get_block, list_blocks).
   Use when the person asks for something to look at or play with that text cannot be: "make a new pizza
   place", "a card for this café", "make me a chart of…", "a little page for…", "a dashboard", "draw…", "a
   3D…", "a small game", "a layout for…", or asks to change, share or embed one they already have. Also use
@@ -34,7 +34,7 @@ The rules common to every app's blocks (the sandbox, libraries, sizing, the grou
 
 1. A new layout: `new_draft` with its room (`width` or `max_width`, `height` or `max_height`; none: full width, as tall as its content) and its fields. Ask the person for both when they did not say. An existing one: `load_draft` with its id.
 2. `write_draft`: first the `sample` (made-up data with exactly the fields), then the `source` that reads it, then improve it step by step. Each write is drawn; the answer has `problems` (fix them) and `advice` on fitting the room.
-3. `publish_draft` only when the person asks: without `confirm` it says what it would do (a new layout, or the one it was loaded from replaced); tell them, then call it with `confirm: true`.
+3. `save_draft` only when the person asks: without `confirm` it says what it would do (a new layout, or the one it was loaded from replaced); tell them, then call it with `confirm: true`. Saving shares nothing: a saved block stays private until it is shared.
 
 **A one-off block**: `create_block`, then the `url`. To change it: `get_block`, then `update_block` with the whole new source. A block made from a layout is changed through its layout, or its data with `set_block_data`.
 
@@ -45,7 +45,7 @@ The rules common to every app's blocks (the sandbox, libraries, sizing, the grou
 | a new pizza place, café, trip… | `list_layouts`, then `create_block_from_layout` |
 | "change its hours", "it's 4.5 stars now" | `get_block`, then `set_block_data` |
 | a new layout, a template | `new_draft`, then `write_draft` |
-| "change the layout", "make the stars smaller" | `load_draft`, `write_draft`, then `publish_draft` |
+| "change the layout", "make the stars smaller" | `load_draft`, `write_draft`, then `save_draft` |
 | something made once | `create_block` |
 | "send it to someone", "embed it" | `update_block` with `shared: true`, then give the url; the embed code is on its page at `/make` (Embed, only once shared) |
 | "what do I have" | `list_layouts`, `list_blocks` |

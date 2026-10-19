@@ -40,6 +40,7 @@
 ## Traps met here
 
 - **An effect written as an expression returns what the expression returns.** `useEffect(() => el.scrollIntoView(...))` hands React a promise in current Chrome (scroll methods return one), and React fails with "destroy is not a function": the page goes blank. Write effects with braces.
+- **The dev tunnel caches the package in the browser.** Cloudflare adds `cache-control: max-age=14400` to what block.ghostmind.app serves, so after a change to `lib/` the page kept the old package (`does not provide an export named …`, a blank page) for hours. The dev server sends `/@fs/…/lib/app/src` files with `no-store` (`ui/app/vite.config.ts`).
 - **A slot made in a render** (`roomSlot(room)` inline) remounts the frame on every render, and the loop closed Chrome twice. One slot per room: `ui/app/src/room.ts`.
 
 ## Check

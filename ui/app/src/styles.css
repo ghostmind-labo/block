@@ -135,7 +135,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visi
 /* The studio and the gallery. Minimal: type and thin lines do the work. The colours are Charlotte Posenenske's
    (Germany, 1960s; her reliefs and ducts of galvanized steel in flat industrial colours, seen widely only decades
    later): a raw steel ground, near-black ink, and three signal colours, each used once: red for the one action
-   that keeps something (Publish), blue for what is selected and for a layout, yellow for the moment a draft
+   that keeps something (Save), blue for what is selected and for a layout, yellow for the moment a draft
    is drawn again. */
 .layouts, .veil, .gallery-one {
   --m-bg: #f3f3f0; --m-surface: #ffffff; --m-line: #dedfdb; --m-ink: #1c1d1b; --m-muted: #6f716c; --m-strong: #1c1d1b; --m-on-strong: #ffffff;
@@ -294,7 +294,7 @@ html.embedded, html.embedded body, html.embedded #root { background: transparent
 .embed-missing { margin: 0; padding: 12px; font: 13px ui-sans-serif, system-ui, sans-serif; color: #787774; }
 .embed-code { margin: 0; padding: 12px 14px; max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-all; font: 11.5px/1.6 var(--m-mono); color: var(--m-ink); background: var(--m-bg); border: 1px solid var(--m-line); border-radius: 6px; }
 
-/* The one action that keeps something: Publish, in signal red. */
+/* The one action that keeps something: Save, in signal red. */
 .layouts .head button.solid { background: var(--m-red); border-color: var(--m-red); color: #fff; }
 .layouts .head .actions button.solid { background: var(--m-strong); border-color: var(--m-strong); color: var(--m-on-strong); }
 .kind--layout { color: var(--m-blue); }

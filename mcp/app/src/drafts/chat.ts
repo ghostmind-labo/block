@@ -1,7 +1,7 @@
 /**
  * The layout chat: a conversation with the person's own model, which writes their live draft and answers their
  * questions. Each write_draft is drawn at once on the page that is open (it asks for the draft's version every
- * second), so the block changes while the model is still working. Publishing waits for the person's Approve.
+ * second), so the block changes while the model is still working. Saving waits for the person's Approve.
  *
  * The loop, the draft tools and the writing rules are the package's (`runTurn`, `DRAFT_TOOLS`, `instructions`),
  * the same any app uses; what is block's own is here: the tools on its blocks, and the system prompt.
@@ -11,13 +11,13 @@ import { aiFor, type ChatMessage } from "../ai/openrouter.ts";
 import { lookUpLibrary } from "../blocks/check.ts";
 import { findLayout, listLayouts } from "../layouts/store.ts";
 import { env } from "../env.ts";
-import { draftAdvice, loadDraft, publishDraft, publishPlan, readDraft, slotOf, writeDraft } from "./store.ts";
+import { draftAdvice, loadDraft, readDraft, saveDraft, savePlan, slotOf, writeDraft } from "./store.ts";
 
 const TOOLS = [
   ...DRAFT_TOOLS,
   {
     name: "load_draft",
-    description: "Start the draft from one of the person's layouts: its source, name, room, fields and sample replace the draft's, and a publish then replaces that layout. The draft's current source is lost: ask first when it has work that was not published.",
+    description: "Start the draft from one of the person's layouts: its source, name, room, fields and sample replace the draft's, and a save then replaces that layout. The draft's current source is lost: ask first when it has work that was not saved.",
     parameters: { type: "object", properties: { id: { type: "string", description: "The layout's id or name, from list_layouts" } }, required: ["id"], additionalProperties: false },
   },
   {
@@ -48,7 +48,7 @@ const ROLE = `You are the layout chat of block (${env.publicUrl}), a playground 
 - Questions are welcome: answer them plainly. Not every message asks for a change.
 - Before changing a draft you did not write in this conversation, read it (read_draft): the person or another agent may have changed it.
 - write_draft answers with what is seen wrong in the source: fix it in the next write. A block that throws shows its error to the person, not to you; when they say it is blank or broken, ask what the error says.
-- publish_draft only when the person asks to keep it. It waits for their approval.
+- save_draft only when the person asks to keep it. It waits for their approval. Saving shares nothing: sharing a block is the person's, in the gallery.
 - Be brief: a sentence or two on what changed, or the answer.`;
 
 /** The system prompt: who the chat is, the rules of a block in its one place, and where the draft is now. */
@@ -57,7 +57,7 @@ async function system(userId: string) {
   const slot = slotOf(draft);
   const what = draft.kind === "block" ? "block" : "layout";
   const now = draft.source.trim()
-    ? `THE DRAFT NOW: a ${what}, "${draft.name ?? "untitled"}", ${Buffer.byteLength(draft.source)} bytes${draft.based_on ? `, started from the ${what} "${draft.based_on.name}" (a publish replaces it)` : ", not published"}. read_draft gives its source.`
+    ? `THE DRAFT NOW: a ${what}, "${draft.name ?? "untitled"}", ${Buffer.byteLength(draft.source)} bytes${draft.based_on ? `, started from the ${what} "${draft.based_on.name}" (a save replaces it)` : ", not saved"}. read_draft gives its source.`
     : `THE DRAFT NOW: an empty ${what}. Start it with write_draft${draft.kind === "block" ? ": its data (sample), then the source" : ": the source"}.`;
   const kind =
     draft.kind === "block"
@@ -95,9 +95,9 @@ async function run(userId: string, name: string, args: Record<string, unknown>) 
       const advice = draftAdvice(draft);
       return { written: true, version: draft.version, name: draft.name, room: slotText(slotOf(draft)), fields: fieldsText(draft.fields), ...(draft.kind === "layout" && args.sample ? { note: "a layout's sample is its fields' standard placeholders: the one you sent was not kept" } : {}), problems: problems.length ? problems : undefined, advice: advice.length ? advice : undefined };
     }
-    case "publish_draft": {
-      const kept = await publishDraft(userId, { name: text(args.name), as_new: args.as_new === true });
-      return { published: true, ...kept, ...(kept.kind === "block" ? { url: `${env.publicUrl}/b/${kept.id}` } : {}) };
+    case "save_draft": {
+      const kept = await saveDraft(userId, { name: text(args.name), as_new: args.as_new === true });
+      return { saved: true, ...kept, ...(kept.kind === "block" ? { url: `${env.publicUrl}/b/${kept.id}` } : {}) };
     }
     case "load_draft": {
       const draft = await loadDraft(userId, String(args.id ?? ""));
@@ -128,7 +128,7 @@ export async function chatTurn(userId: string, input: ChatInput, signal?: AbortS
     converse: ({ messages }: { messages: ChatMessage[] }) => ai.converse({ messages, tools: asFunctions(TOOLS), signal }),
     tools: TOOLS,
     run: (name: string, args: Record<string, unknown>) => run(userId, name, args),
-    describe: (name: string, args: Record<string, unknown>) => (name === "publish_draft" ? { summary: publishPlan(draft, args) } : { summary: `Run ${name}` }),
+    describe: (name: string, args: Record<string, unknown>) => (name === "save_draft" ? { summary: savePlan(draft, args) } : { summary: `Run ${name}` }),
     system: await system(userId),
     messages: input.messages.slice(-80),
     text: input.text,

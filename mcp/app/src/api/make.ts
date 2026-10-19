@@ -5,7 +5,7 @@ import { aiStatus, chooseModel, connect, disconnect } from "../ai/openrouter.ts"
 import { currentUser, requireUser } from "../auth/google.ts";
 import { chatTurn } from "../drafts/chat.ts";
 import { createFromLayout, deleteLayout, getLayout, listLayouts } from "../layouts/store.ts";
-import { draftProblems, draftVersion, loadBlockDraft, loadDraft, newBlockDraft, newDraft, publishDraft, readDraft, writeDraft } from "../drafts/store.ts";
+import { draftProblems, draftVersion, loadBlockDraft, loadDraft, newBlockDraft, newDraft, readDraft, saveDraft, writeDraft } from "../drafts/store.ts";
 
 /** The layout chat's API: the person's OpenRouter account, their live draft, and a turn of the chat. Signed in. */
 export const make = Router();
@@ -84,14 +84,14 @@ make.patch(
     return res.json(await writeDraft(uid, changes));
   }),
 );
-// The page's own Publish button: the person pressing it is the approval.
+// The page's own Save button: the person pressing it is the approval.
 make.post(
-  "/api/draft/publish",
+  "/api/draft/save",
   json(),
   safely(async (req, res) => {
     const body = z.object({ name: z.string().min(1).max(120).optional(), as_new: z.boolean().optional() }).safeParse(req.body ?? {});
     if (!body.success) return invalid(res, "name, as_new");
-    return res.json(await publishDraft(currentUser(res).id, body.data));
+    return res.json(await saveDraft(currentUser(res).id, body.data));
   }),
 );
 

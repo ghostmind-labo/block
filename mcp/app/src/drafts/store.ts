@@ -5,9 +5,9 @@
  *   - a LAYOUT: a preset UI that accepts data (its fields), drawn with made-up data; never shown on its own.
  *   - a BLOCK: finished content for the gallery, to share or embed. It may inherit a layout's look and fill in its
  *     own data; given a look of its own, it stops following the layout.
- * Publishing keeps it, only when asked, replacing the layout or the block it was started from, or making a new one.
+ * Saving keeps it, only when asked, replacing the layout or the block it was started from, or making a new one.
  */
-import { checkFields, checkRoom, placeholders, publishing, roomAdvice, roomSlot, sourceProblems, type Room, type Field } from "@ghostmind-dev/block";
+import { checkFields, checkRoom, placeholders, saving, roomAdvice, roomSlot, sourceProblems, type Room, type Field } from "@ghostmind-dev/block";
 import { gql } from "../db/hasura.ts";
 import { ApiError } from "../errors.ts";
 import { bring, DIRECTIVES } from "../blocks/check.ts";
@@ -30,7 +30,7 @@ export interface Draft {
   sample: unknown;
   version: number;
   updated_at: string | null;
-  /** A layout draft: the layout it was started from, which a publish replaces. A block draft: the block. */
+  /** A layout draft: the layout it was started from, which a save replaces. A block draft: the block. */
   based_on: { id: string; name: string } | null;
   /** A block draft: the layout whose look it inherits (its source is the layout's while it is), or null. */
   layout: { id: string; name: string; source: string } | null;
@@ -55,7 +55,7 @@ export function roomOf(layout: { room: Room | null; slot: string }): Room {
 /** The room as a slot, so a layout is described and checked like a block in an app's place. */
 export const slotOf = (layout: { room: Room | null; slot: string; name?: string | null }) => roomSlot(roomOf(layout), { what: layout.name ? `the place of the layout "${layout.name}"` : undefined });
 
-/** What the frame would refuse in the draft's source: shown to the person, and it keeps a draft from being published. */
+/** What the frame would refuse in the draft's source: shown to the person, and it keeps a draft from being saved. */
 export const draftProblems = (draft: Draft) => (draft.source.trim() ? sourceProblems(draft.source, { names: DIRECTIVES }) : []);
 /** How it could fit its room better: told to the model that writes it, never a refusal. */
 export const draftAdvice = (draft: Draft) => (draft.source.trim() ? roomAdvice(draft.source, { slot: slotOf(draft) }) : []);
@@ -133,14 +133,14 @@ export async function writeDraft(userId: string, changes: DraftChanges): Promise
   return { draft, problems: draftProblems(draft) };
 }
 
-/** Starts the draft from one of the person's layouts (by id or name): a publish then replaces that layout. */
+/** Starts the draft from one of the person's layouts (by id or name): a save then replaces that layout. */
 export async function loadDraft(userId: string, which: string): Promise<Draft> {
   const layout = await findLayout(userId, which);
   if (!layout) throw new ApiError(404, "There is no layout of yours by that id or name: list_layouts has them.");
   return (await writeDraft(userId, { kind: "layout", source: layout.source, name: layout.name, slot: "layout", room: layout.room ?? null, fields: layout.fields, based_on: layout.id, layout_id: null, block_id: null })).draft;
 }
 
-/** Starts the draft from one of the person's blocks: a publish then replaces that block. */
+/** Starts the draft from one of the person's blocks: a save then replaces that block. */
 export async function loadBlockDraft(userId: string, id: string): Promise<Draft> {
   const block = await getBlock(userId, id);
   if (!block) throw new ApiError(404, "There is no block of yours with that id: list_blocks has them.");
@@ -163,20 +163,17 @@ export async function newBlockDraft(userId: string, { layout: which, room, name 
   return (await writeDraft(userId, { kind: "block", source: "", name: name ?? null, slot: "layout", room: room ?? { width: null, height: null }, fields: [], sample: null, based_on: null, layout_id: null, block_id: null })).draft;
 }
 
-/** What a publish will do, in a sentence. */
-export const publishPlan = (draft: Draft, args: { name?: string; as_new?: boolean } = {}) => {
-  const said = publishing(draft, args);
-  return draft.kind === "block" ? said.replace(/layout|block/g, "block").replace("Keep this draft as a new block", "Keep this as a new block in the gallery") : said.replace(/block/g, "layout");
-};
+/** What a save will do, in a sentence. */
+export const savePlan = (draft: Draft, args: { name?: string; as_new?: boolean } = {}) => saving(draft, args);
 
 /** Keeps the draft: a layout as a layout, a block as a block (in the gallery). Replaces the one it came from, or makes a new one. */
-export async function publishDraft(userId: string, { name, as_new }: { name?: string; as_new?: boolean } = {}): Promise<{ kind: "layout" | "block"; id: string; name: string }> {
+export async function saveDraft(userId: string, { name, as_new }: { name?: string; as_new?: boolean } = {}): Promise<{ kind: "layout" | "block"; id: string; name: string }> {
   const draft = await readDraft(userId);
-  if (!draft.source.trim()) throw new ApiError(400, "The draft is empty: there is nothing to publish.");
+  if (!draft.source.trim()) throw new ApiError(400, "The draft is empty: there is nothing to save.");
   const problems = draftProblems(draft);
-  if (problems.length) throw new ApiError(400, `Not published: ${problems.join("; ")}`);
+  if (problems.length) throw new ApiError(400, `Not saved: ${problems.join("; ")}`);
   const brought = await bring(draft.source);
-  if (brought.problems.length) throw new ApiError(400, `Not published: a library it names could not be brought (${brought.problems.join("; ")})`);
+  if (brought.problems.length) throw new ApiError(400, `Not saved: a library it names could not be brought (${brought.problems.join("; ")})`);
   const called = (name || draft.name || "Untitled").slice(0, 120);
 
   if (draft.kind === "block") {

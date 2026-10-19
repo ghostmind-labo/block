@@ -1,8 +1,8 @@
-import { FIELD_TYPES, placeholders, publishing, type Slot } from "@ghostmind-dev/block";
+import { FIELD_TYPES, placeholders, saving, type Slot } from "@ghostmind-dev/block";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { chatTurn, chooseModel, deleteLayout, disconnectAi, getLayout, listLayouts, type LayoutSummary, getAi, getDraft, getModels, publishDraft, writeDraft, type AiStatus, type CatalogModel, type ChatMessage, type ChatTurn, type Draft, type Field, type Room } from "./api";
+import { chatTurn, chooseModel, deleteLayout, disconnectAi, getLayout, listLayouts, type LayoutSummary, getAi, getDraft, getModels, saveDraft, writeDraft, type AiStatus, type CatalogModel, type ChatMessage, type ChatTurn, type Draft, type Field, type Room } from "./api";
 import { signedIn, signIn } from "./auth";
 import { NO_REPORT, type Report } from "./frame";
 import { connectAi, finishConnectAi } from "./openrouter";
@@ -23,7 +23,7 @@ const KEPT = "block.chat";
 const STEPS: Record<string, string> = {
   read_draft: "Read the draft",
   write_draft: "Wrote the draft",
-  publish_draft: "Published it",
+  save_draft: "Saved it",
   load_draft: "Opened a layout",
   list_layouts: "Looked at your layouts",
   get_layout: "Read a layout",
@@ -125,14 +125,14 @@ function Layouts() {
   const shown = selected ?? layouts?.[0]?.id ?? null;
   if (!slots || !layouts || !draft.current) return <Shell>{null}</Shell>;
   const current = draft.current;
-  const unpublished = Boolean(current.source.trim()) && !current.based_on;
+  const unsaved = Boolean(current.source.trim()) && !current.based_on;
   const what = current.kind === "block" ? "block" : "layout";
 
   const startOver = () => {
     keepChat([]);
     setRound((n) => n + 1);
   };
-  const replacing = async () => !unpublished || (await ask(`The ${what} “${current.name ?? "untitled"}” was not published. Starting another replaces it.`, "Start another"));
+  const replacing = async () => !unsaved || (await ask(`The ${what} “${current.name ?? "untitled"}” was not saved. Starting another replaces it.`, "Start another"));
   const edit = async (id: string) => {
     if (current.kind !== "layout" || current.based_on?.id !== id) {
       if (!(await replacing())) return;
@@ -184,7 +184,7 @@ function Layouts() {
               slots={slots.slots}
               ask={ask}
               onSettings={() => setSettings("edit")}
-              onPublished={(kept) => {
+              onSaved={(kept) => {
                 void client.invalidateQueries({ queryKey: [kept.kind === "block" ? "blocks" : "layouts"] });
                 if (kept.kind === "block") void client.invalidateQueries({ queryKey: ["block", kept.id] });
               }}
@@ -262,7 +262,7 @@ function Layouts() {
 
 type Question = { text: string; yes: string; resolve: (ok: boolean) => void };
 
-/** A question asked on the page, never in a browser dialog: `await ask("…", "Publish")` is true on yes. */
+/** A question asked on the page, never in a browser dialog: `await ask("…", "Save")` is true on yes. */
 function useAsk() {
   const [question, setQuestion] = useState<Question | null>(null);
   const ask = useCallback((text: string, yes: string) => new Promise<boolean>((resolve) => setQuestion({ text, yes, resolve })), []);
@@ -311,7 +311,7 @@ function LayoutList({ layouts, slots, shown, onShow, onNewLayout, onNewBlock, dr
       <ul>
         {draft && (
           <li>
-            <button onClick={onDraft} title="Not published yet: open it to go on">
+            <button onClick={onDraft} title="Not saved yet: open it to go on">
               <span>{draft.name ?? "Untitled"}</span>
               <small>
                 {draft.kind} draft · {roomText(roomOf(draft, slots))}
@@ -459,16 +459,16 @@ const Errors = ({ errors }: { errors: string[] }) =>
   ) : null;
 
 /** The layout being edited: its name, its room and data, and the draft drawn, as code, or as its data. */
-function Workspace({ draft, slots, ask, onSettings, onPublished, onGallery }: { draft: ReturnType<typeof useDraft>; slots: Slot[]; ask: (text: string, yes: string) => Promise<boolean>; onSettings: () => void; onPublished: (kept: { kind: "layout" | "block"; id: string; name: string }) => void; onGallery: (id: string) => void }) {
+function Workspace({ draft, slots, ask, onSettings, onSaved, onGallery }: { draft: ReturnType<typeof useDraft>; slots: Slot[]; ask: (text: string, yes: string) => Promise<boolean>; onSettings: () => void; onSaved: (kept: { kind: "layout" | "block"; id: string; name: string }) => void; onGallery: (id: string) => void }) {
   const current = draft.current!;
   const [view, setView] = useState<"preview" | "code" | "data">("preview");
   const [report, setReport] = useState<Report>(NO_REPORT);
   const [status, setStatus] = useState<{ text: string; block?: string } | null>(null);
-  const publish = useMutation({
-    mutationFn: () => publishDraft(),
+  const save = useMutation({
+    mutationFn: () => saveDraft(),
     onSuccess: (kept) => {
-      setStatus({ text: `Published as “${kept.name}”.`, ...(kept.kind === "block" ? { block: kept.id } : {}) });
-      onPublished(kept);
+      setStatus({ text: `Saved as “${kept.name}”.`, ...(kept.kind === "block" ? { block: kept.id } : {}) });
+      onSaved(kept);
     },
     onError: (error) => setStatus({ text: error.message }),
   });
@@ -486,8 +486,8 @@ function Workspace({ draft, slots, ask, onSettings, onPublished, onGallery }: { 
         <button className="quiet" onClick={onSettings}>
           Room & data
         </button>
-        <button className="solid" disabled={empty || publish.isPending} onClick={() => void ask(publishing(current), "Publish").then((ok) => ok && publish.mutate())}>
-          Publish
+        <button className="solid" disabled={empty || save.isPending} onClick={() => void ask(saving(current), "Save").then((ok) => ok && save.mutate())}>
+          Save
         </button>
       </header>
       <div className="tabs-line" role="tablist" aria-label="What is shown">

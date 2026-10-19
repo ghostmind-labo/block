@@ -138,7 +138,7 @@ export const writeDraft = (changes: {
   fresh_block?: { layout?: string | null; room?: Room; name?: string | null };
   from_block?: string;
 }) => call<{ draft: Draft; problems: string[] }>("/api/draft", { method: "PATCH", body: JSON.stringify(changes) });
-export const publishDraft = (options: { name?: string; as_new?: boolean } = {}) => call<{ kind: "layout" | "block"; id: string; name: string }>("/api/draft/publish", { method: "POST", body: JSON.stringify(options) });
+export const saveDraft = (options: { name?: string; as_new?: boolean } = {}) => call<{ kind: "layout" | "block"; id: string; name: string }>("/api/draft/save", { method: "POST", body: JSON.stringify(options) });
 export const chatTurn = (input: { messages: ChatMessage[]; text?: string; approve?: { callId: string; approved: boolean } }, signal?: AbortSignal) =>
   call<ChatTurn>("/api/chat", { method: "POST", body: JSON.stringify(input), signal });
 
