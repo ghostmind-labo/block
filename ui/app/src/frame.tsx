@@ -1,4 +1,4 @@
-import { makeLoader, selfHost, type Loaded, type Slot } from "@ghostmind-dev/block";
+import { makeLoader, makePictures, selfHost, type Loaded, type Slot } from "@ghostmind-dev/block";
 import { mount, type Mounted } from "@ghostmind-dev/block/web";
 import { useEffect, useRef, useState } from "react";
 
@@ -6,6 +6,9 @@ import { useEffect, useRef, useState } from "react";
 export const DIRECTIVES = ["potion", "relay", "tags"];
 // One loader for the page: two blocks that name the same library at the same moment make one request.
 export const loader = makeLoader();
+// The pictures a block shows by address (<img src="https://…">), fetched by this page straight from where they
+// are, and given to the frame as data:. A host that refuses other sites (no CORS) leaves its picture out, said.
+export const pictures = makePictures({ fetch: (address) => fetch(address, { credentials: "omit", referrerPolicy: "no-referrer" }) });
 /** What a block here may ask for: `block.self()`, the object it shows. In this app that is made-up data, the block's sample. */
 const HOST = selfHost("block");
 
@@ -50,6 +53,7 @@ export function BlockFrame({ html, slot, scheme, title, sample, onReport, bare =
     say({});
     mount(host.current!, html, {
       loader,
+      pictures,
       host: HOST,
       handlers: { self: () => JSON.parse(sampleText) },
       names: DIRECTIVES,

@@ -27,6 +27,12 @@ declare module "@ghostmind-dev/block" {
   }
   export function makeLoader(options?: { fetch?: typeof fetch }): Loader;
   export function parse(html: string, options?: { names?: string[] }): { source: string; libraries: unknown[]; directives: { name: string; text: string }[]; cover: string | null };
+  export interface Pictures {
+    bring(address: string): Promise<string>;
+  }
+  export function picturesIn(source: string): string[];
+  export function makePictures(options?: { fetch?: (address: string) => Promise<Response>; maxBytes?: number }): Pictures;
+  export function bringPictures(source: string, pictures?: Pictures): Promise<{ source: string; problems: string[] }>;
   export function documentOf(source: string, options?: { libraries?: Loaded[]; slot?: Slot; mode?: "inline" | "fill"; scheme?: string; style?: string }): string;
   export interface Host {
     readonly name: string;
@@ -54,6 +60,7 @@ declare module "@ghostmind-dev/block/web" {
     html: string,
     options?: {
       loader?: Loader;
+      pictures?: import("@ghostmind-dev/block").Pictures;
       host?: Host;
       handlers?: Record<string, (...args: unknown[]) => unknown>;
       names?: string[];
