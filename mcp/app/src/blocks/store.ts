@@ -54,6 +54,13 @@ export async function getSharedBlock(id: string): Promise<Pick<Block, "id" | "na
   return data.blocks[0] ?? null;
 }
 
+/** Whether a shared block shows this picture by address: what lets anyone have it relayed. */
+export async function sharedPicture(address: string): Promise<boolean> {
+  const like = `%${address.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  const data = await gql<{ blocks: { id: string }[] }>(`query($like: String!) { blocks(where: {shared: {_eq: true}, source: {_like: $like}}, limit: 1) { id } }`, { like }, "admin");
+  return data.blocks.length > 0;
+}
+
 export async function createBlock(userId: string, block: { name: string; source: string; slot: string; shared: boolean; sample?: unknown; room?: Block["room"] }): Promise<Block> {
   const data = await gql<{ insert_blocks_one: Block }>(`mutation($block: blocks_insert_input!) { insert_blocks_one(object: $block) { ${FIELDS} } }`, { block }, { userId });
   return data.insert_blocks_one;

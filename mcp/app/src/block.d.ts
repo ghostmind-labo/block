@@ -94,3 +94,11 @@ declare module "@ghostmind-dev/block" {
     maxText?: number;
   }): Promise<{ messages: M[]; reply: string | null; pending: Pending | null; model: string | null; cost: number }>;
 }
+
+declare module "@ghostmind-dev/block/server" {
+  export class PictureError extends Error {
+    status: number;
+  }
+  export function isPrivateAddress(address: string): boolean;
+  export function relayPicture(address: string, options?: { fetch?: typeof fetch; maxBytes?: number; timeout?: number }): Promise<{ type: string; bytes: Uint8Array }>;
+}

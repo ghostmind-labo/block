@@ -47,6 +47,12 @@ export const listBlocks = () => call<{ blocks: BlockSummary[] }>("/api/blocks").
 export const getBlock = (id: string) => call<Block>(`/api/blocks/${id}`, {}, { anonymous: true });
 export const createBlock = (block: Pick<Block, "name" | "source" | "slot">) => call<Block>("/api/blocks", { method: "POST", body: JSON.stringify(block) });
 export const updateBlock = (id: string, changes: Partial<Pick<Block, "name" | "source" | "slot" | "shared">>) => call<Block>(`/api/blocks/${id}`, { method: "PATCH", body: JSON.stringify(changes) });
+/** A picture a block shows, through this app's server: for a host that refuses a browser on another site. */
+export async function relayedPicture(address: string): Promise<Response> {
+  const headers = new Headers();
+  if (signedIn()) headers.set("authorization", `Bearer ${await accessToken().catch(() => "")}`);
+  return fetch(`/api/picture?url=${encodeURIComponent(address)}`, { headers });
+}
 export const deleteBlock = (id: string) => call<void>(`/api/blocks/${id}`, { method: "DELETE" });
 
 // ---- the block chat: the person's OpenRouter account, their live draft, a turn of the chat

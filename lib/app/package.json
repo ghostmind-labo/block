@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.js",
     "./web": "./src/mount.js",
+    "./server": "./src/relay.js",
     "./catalogue": "./src/catalogue.js"
   },
   "files": ["src"],

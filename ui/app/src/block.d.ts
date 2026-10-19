@@ -31,7 +31,7 @@ declare module "@ghostmind-dev/block" {
     bring(address: string): Promise<string>;
   }
   export function picturesIn(source: string): string[];
-  export function makePictures(options?: { fetch?: (address: string) => Promise<Response>; maxBytes?: number }): Pictures;
+  export function makePictures(options?: { fetch?: (address: string) => Promise<Response>; relay?: (address: string) => Promise<Response>; maxBytes?: number }): Pictures;
   export function bringPictures(source: string, pictures?: Pictures): Promise<{ source: string; problems: string[] }>;
   export function documentOf(source: string, options?: { libraries?: Loaded[]; slot?: Slot; mode?: "inline" | "fill"; scheme?: string; style?: string }): string;
   export interface Host {
