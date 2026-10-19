@@ -1,4 +1,5 @@
 import { gql } from "../db/hasura.ts";
+import { makeCard } from "./cards.ts";
 
 export interface Block {
   id: string;
@@ -63,6 +64,7 @@ export async function sharedPicture(address: string): Promise<boolean> {
 
 export async function createBlock(userId: string, block: { name: string; source: string; slot: string; shared: boolean; sample?: unknown; room?: Block["room"] }): Promise<Block> {
   const data = await gql<{ insert_blocks_one: Block }>(`mutation($block: blocks_insert_input!) { insert_blocks_one(object: $block) { ${FIELDS} } }`, { block }, { userId });
+  if (data.insert_blocks_one.shared) void makeCard(data.insert_blocks_one.id);
   return data.insert_blocks_one;
 }
 
@@ -73,6 +75,8 @@ export async function updateBlock(userId: string, id: string, changes: Partial<P
     { id, changes },
     { userId },
   );
+  // a shared block that changed (or was just shared) gets its card's picture made again, in the background
+  if (data.update_blocks_by_pk?.shared) void makeCard(id);
   return data.update_blocks_by_pk;
 }
 

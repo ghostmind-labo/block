@@ -137,6 +137,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, textarea:focus-visi
 .shared .place--page { height: auto; min-height: calc(100vh - 34px); }
 .shared footer { display: flex; justify-content: space-between; padding: 6px 14px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
 
+/* A shared block as the picture of its link card (?card): 1200×630, the block centred on the dark ground. */
+.card-view { width: 1200px; height: 630px; display: grid; place-items: center; overflow: hidden; background: #0e0e0e; }
+.card-block { transform-origin: center; }
+
 /* One block in the gallery. */
 .gallery-one { width: 100%; max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
 .gallery-one .head { margin-bottom: 28px; }

@@ -5,6 +5,7 @@ import { currentUser, requireUser, userFromToken } from "../auth/google.ts";
 import { sourceProblem } from "../blocks/check.ts";
 import { DEFAULT_SLOT, SLOT_NAMES, SLOTS } from "../blocks/slots.ts";
 import { relayPicture, PictureError } from "@ghostmind-dev/block/server";
+import { cardOf } from "../blocks/cards.ts";
 import { createBlock, deleteBlock, getBlock, getSharedBlock, listBlocks, sharedPicture, updateBlock } from "../blocks/store.ts";
 
 /** The API the web app uses. Same Google sign-in as the MCP. */
@@ -34,6 +35,19 @@ api.get(
     if (own) return res.json({ ...own, mine: true });
     const shared = await getSharedBlock(id);
     return shared ? res.json({ ...shared, shared: true, mine: false }) : missing(res);
+  }),
+);
+
+// The picture of a shared block's link card (blocks/cards.ts), for X, iMessage and Slack: anyone, shared blocks only.
+api.get(
+  "/api/blocks/:id/card.png",
+  safely(async (req, res) => {
+    const block = await getSharedBlock(String(req.params.id));
+    if (!block) return missing(res);
+    const png = await cardOf(block.id, block.updated_at);
+    if (!png) return res.status(503).json({ error: "unavailable", message: "The card's picture could not be made just now" });
+    res.set({ "content-type": "image/png", "cache-control": "public, max-age=300" });
+    return res.send(png);
   }),
 );
 
