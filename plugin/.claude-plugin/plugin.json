@@ -1,5 +1,5 @@
 {
   "name": "block",
   "description": "Make html blocks with Claude: a chart, a small page, a widget, a drawing, a game. Each is one piece of html shown in a sandboxed frame, at an address that can be shared.",
-  "version": "0.3.0"
+  "version": "0.4.0"
 }

@@ -1,11 +1,15 @@
-import { makeLoader, selfHost, type Loaded, type Slot } from "@ghostmind-dev/block";
+import { makeLoader, makePictures, selfHost, type Loaded, type Slot } from "@ghostmind-dev/block";
 import { mount, type Mounted } from "@ghostmind-dev/block/web";
 import { useEffect, useRef, useState } from "react";
+import { relayedPicture } from "./api";
 
 /** The directive spellings read here: the package's own, and each app's, so a block written for one of them is shown as it is. */
-const DIRECTIVES = ["potion", "relay", "tags"];
+export const DIRECTIVES = ["potion", "relay", "tags"];
 // One loader for the page: two blocks that name the same library at the same moment make one request.
-const loader = makeLoader();
+export const loader = makeLoader();
+// The pictures a block shows by address (<img src="https://…">), fetched by this page straight from where they
+// are, and given to the frame as data:. A host that refuses other sites (no CORS) is asked through this app's server.
+export const pictures = makePictures({ relay: relayedPicture });
 /** What a block here may ask for: `block.self()`, the object it shows. In this app that is made-up data, the block's sample. */
 const HOST = selfHost("block");
 
@@ -50,6 +54,7 @@ export function BlockFrame({ html, slot, scheme, title, sample, onReport, bare =
     say({});
     mount(host.current!, html, {
       loader,
+      pictures,
       host: HOST,
       handlers: { self: () => JSON.parse(sampleText) },
       names: DIRECTIVES,

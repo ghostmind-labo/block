@@ -2,20 +2,9 @@ table:
   name: blocks
   schema: public
 object_relationships:
-  - name: layout
-    using:
-      foreign_key_constraint_on: layout_id
   - name: user
     using:
       foreign_key_constraint_on: user_id
-array_relationships:
-  - name: made_from
-    using:
-      foreign_key_constraint_on:
-        column: layout_id
-        table:
-          name: blocks
-          schema: public
 insert_permissions:
   - role: user
     permission:
@@ -31,8 +20,6 @@ insert_permissions:
         - shared
         - sample
         - room
-        - fields
-        - layout_id
 select_permissions:
   - role: public
     permission:
@@ -43,8 +30,6 @@ select_permissions:
         - slot
         - sample
         - room
-        - fields
-        - layout_id
         - updated_at
       filter:
         shared:
@@ -67,8 +52,6 @@ update_permissions:
         - shared
         - sample
         - room
-        - fields
-        - layout_id
       filter:
         user_id:
           _eq: X-Hasura-User-Id

@@ -7,14 +7,10 @@ export interface Block {
   slot: string;
   shared: boolean;
   source: string;
-  /** The made-up data it was written with: what `block.self()` answers. */
+  /** What `block.self()` answers in it, for a block that keeps its data apart from its html. Usually none. */
   sample?: unknown;
-  /** Its room and the data it shows, set by the person; null for a block made for one of the app's slots. */
+  /** Its room; null for a block made for one of the app's slots. */
   room?: Room | null;
-  fields?: Field[] | null;
-  /** The layout it was made from, whose source, room and fields it is drawn with. */
-  layout_id?: string | null;
-  layout?: { id: string; name: string } | null;
   updated_at: string;
   /** Whether the person looking at it is the one who made it. */
   mine?: boolean;
@@ -51,9 +47,15 @@ export const listBlocks = () => call<{ blocks: BlockSummary[] }>("/api/blocks").
 export const getBlock = (id: string) => call<Block>(`/api/blocks/${id}`, {}, { anonymous: true });
 export const createBlock = (block: Pick<Block, "name" | "source" | "slot">) => call<Block>("/api/blocks", { method: "POST", body: JSON.stringify(block) });
 export const updateBlock = (id: string, changes: Partial<Pick<Block, "name" | "source" | "slot" | "shared">>) => call<Block>(`/api/blocks/${id}`, { method: "PATCH", body: JSON.stringify(changes) });
+/** A picture a block shows, through this app's server: for a host that refuses a browser on another site. */
+export async function relayedPicture(address: string): Promise<Response> {
+  const headers = new Headers();
+  if (signedIn()) headers.set("authorization", `Bearer ${await accessToken().catch(() => "")}`);
+  return fetch(`/api/picture?url=${encodeURIComponent(address)}`, { headers });
+}
 export const deleteBlock = (id: string) => call<void>(`/api/blocks/${id}`, { method: "DELETE" });
 
-// ---- the layout chat: the person's OpenRouter account, their live draft, a turn of the chat
+// ---- the block chat: the person's OpenRouter account, their live draft, a turn of the chat
 
 export interface AiStatus {
   connected: boolean;
@@ -75,16 +77,11 @@ export interface Room {
   width: { min?: number; max?: number } | null;
   height: { min?: number; max?: number } | null;
 }
-export interface Field {
-  key: string;
-  type: string;
-}
 export interface Draft {
   source: string;
   name: string | null;
   slot: string;
   room: Room | null;
-  fields: Field[];
   sample: Record<string, unknown> | null;
   version: number;
   updated_at: string | null;
@@ -111,7 +108,17 @@ export const connectOpenRouter = (code: string, verifier: string) => call<AiStat
 export const disconnectAi = () => call<void>("/api/ai", { method: "DELETE" });
 /** The draft, or undefined while its version is still `since`. */
 export const getDraft = (since?: number) => call<(Draft & { problems: string[] }) | undefined>(`/api/draft${since === undefined ? "" : `?since=${since}`}`);
-export const writeDraft = (changes: { source?: string; name?: string | null; sample?: Record<string, unknown> | null; room?: Room; fields?: Field[]; from?: string; fresh?: { room: Room; fields: Field[]; name: string | null } }) => call<{ draft: Draft; problems: string[] }>("/api/draft", { method: "PATCH", body: JSON.stringify(changes) });
-export const publishDraft = (options: { name?: string; as_new?: boolean } = {}) => call<Block>("/api/draft/publish", { method: "POST", body: JSON.stringify(options) });
+export const writeDraft = (changes: {
+  source?: string;
+  name?: string | null;
+  sample?: Record<string, unknown> | null;
+  room?: Room;
+  /** One of the person's blocks to start from. */
+  from?: string;
+  /** A new, empty block: the draft is thrown away. */
+  fresh?: { room?: Room; name?: string | null };
+}) => call<{ draft: Draft; problems: string[] }>("/api/draft", { method: "PATCH", body: JSON.stringify(changes) });
+export const saveDraft = (options: { name?: string; as_new?: boolean } = {}) => call<{ id: string; name: string }>("/api/draft/save", { method: "POST", body: JSON.stringify(options) });
 export const chatTurn = (input: { messages: ChatMessage[]; text?: string; approve?: { callId: string; approved: boolean } }, signal?: AbortSignal) =>
   call<ChatTurn>("/api/chat", { method: "POST", body: JSON.stringify(input), signal });
+

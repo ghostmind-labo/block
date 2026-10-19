@@ -2,12 +2,13 @@ import { defineSlot, type Slot } from "@ghostmind-dev/block";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { createBlock, deleteBlock, getBlock, getSlots, listBlocks, updateBlock, type BlockSummary, type SlotInfo } from "./api";
+import { deleteBlock, getBlock, getDraft, getSlots, listBlocks, updateBlock, type Block, type BlockSummary, type SlotInfo } from "./api";
 import { finishSignIn, signedIn, signIn, signOut } from "./auth";
 import { EXAMPLES } from "./examples";
 import { BlockFrame, NO_REPORT, type Report, type Scheme } from "./frame";
-import { highlighted } from "./highlight";
 import { Stage } from "./stage";
+import { embedOf } from "./embed";
+import { roomOf, roomText, slotFor } from "./room";
 
 export const systemScheme = (): Scheme => (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -25,8 +26,6 @@ export function Shell({ children, actions }: { children: ReactNode; actions?: Re
           <i aria-hidden /> block
         </Link>
         <nav>
-          {signedIn() && <Link to="/make">Make one</Link>}
-          <Link to="/try">Try one</Link>
           {signedIn() ? <button className="quiet" onClick={signOut}>Sign out</button> : <button className="quiet" onClick={() => void signIn()}>Sign in</button>}
         </nav>
         {actions}
@@ -111,51 +110,82 @@ function Welcome() {
 
 function Gallery() {
   const { data: blocks, error } = useQuery({ queryKey: ["blocks"], queryFn: listBlocks });
+  // a block being written and never saved is shown first, to go back to it
+  const { data: draft } = useQuery({ queryKey: ["draft"], queryFn: () => getDraft() });
+  const unsaved = draft && draft.source.trim() && !draft.based_on ? draft : null;
   return (
     <Shell>
       <main className="gallery">
-        <h1>Your blocks</h1>
+        <header className="gallery-head">
+          <h1>Blocks</h1>
+          <Link to="/make" search={{ new: "" } as never} className="button add" aria-label="New block" title="New block">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </Link>
+        </header>
         {error && <p className="error">{error.message}</p>}
-        {blocks?.length === 0 && (
-          <p className="empty">
-            Nothing yet. Ask Claude to make one (the block plugin), or <Link to="/try">write one here</Link>.
-          </p>
-        )}
-        <div className="grid">{blocks?.map((block) => <Tile key={block.id} block={block} />)}</div>
+        {blocks?.length === 0 && !unsaved && <p className="empty">Nothing yet. A block is a piece of html: describe one to the chat, and watch it drawn.</p>}
+        <div className="grid">
+          {unsaved && (
+            <Link to="/make" className="tile tile--draft">
+              <div className="thumb thumb--draft">
+                <span>Not saved</span>
+              </div>
+              <div className="tile-text">
+                <strong>{unsaved.name ?? "Untitled"}</strong>
+                <span>draft</span>
+              </div>
+            </Link>
+          )}
+          {blocks?.map((block) => <Tile key={block.id} block={block} />)}
+        </div>
       </main>
     </Shell>
   );
 }
 
-// A block seen small. One made for a whole page or a column is drawn at three times the tile and scaled down,
-// so it is the block and not a corner of it; one made for a small place is shown at its own size.
+// A block seen small. One with a width of its own (a card, a panel) is drawn at that width and scaled down only as
+// much as the tile needs, in the middle; one as wide as its place (a page, a column) is drawn at three times the
+// tile and scaled down, so it is the block and not a corner of it.
 const WIDE = 3;
 function Tile({ block }: { block: BlockSummary }) {
   const slots = useSlots();
   const box = useRef<HTMLAnchorElement>(null);
+  const thumb = useRef<HTMLDivElement>(null);
   const [seen, setSeen] = useState(false);
+  const [room, setRoom] = useState(0);
   useEffect(() => {
     const watcher = new IntersectionObserver(([entry]) => entry.isIntersecting && setSeen(true), { rootMargin: "200px" });
     watcher.observe(box.current!);
-    return () => watcher.disconnect();
+    const sized = new ResizeObserver(([entry]) => setRoom(entry.contentRect.width));
+    sized.observe(thumb.current!);
+    return () => {
+      watcher.disconnect();
+      sized.disconnect();
+    };
   }, []);
   const { data } = useQuery({ queryKey: ["block", block.id], queryFn: () => getBlock(block.id), enabled: seen });
-  const own = slots?.slots.find((slot) => slot.name === block.slot);
-  const small = Boolean(own && own.width?.max && own.width.max <= 320);
-  const slot = useMemo<Slot | null>(() => (own ? (small ? { ...own, interactive: false } : defineSlot({ name: own.name, height: "fill", interactive: false })) : null), [own, small]);
+  const own = slots ? slotFor(block, slots.slots) : null;
+  const width = own?.width?.max ?? null;
+  const slot = useMemo<Slot | null>(() => (own ? (width ? { ...own, interactive: false } : defineSlot({ name: own.name, height: "fill", interactive: false })) : null), [own, width]);
+  const scale = width && room ? Math.min(1, (room - 24) / width) : 1;
   return (
     <Link ref={box} to="/b/$id" params={{ id: block.id }} className="tile">
-      <div className={`thumb${small ? " thumb--small" : ""}`}>
+      <div ref={thumb} className={`thumb${width ? " thumb--small" : ""}`}>
         {data && slot && (
-          <div className="thumb-inner" style={small ? undefined : { width: `${WIDE * 100}%`, height: `${WIDE * 100}%`, transform: `scale(${1 / WIDE})` }}>
-            <BlockFrame html={data.source} slot={slot} scheme={systemScheme()} title={block.name} />
+          <div
+            className="thumb-inner"
+            style={width ? { width, zoom: scale } : { width: `${WIDE * 100}%`, height: `${WIDE * 100}%`, transform: `scale(${1 / WIDE})` }}
+          >
+            <BlockFrame html={data.source} slot={slot} scheme={systemScheme()} title={block.name} sample={data.sample} bare />
           </div>
         )}
       </div>
       <div className="tile-text">
         <strong>{block.name}</strong>
         <span>
-          {block.slot} · {when(block.updated_at)}
+          {when(block.updated_at)}
           {block.shared ? " · shared" : ""}
         </span>
       </div>
@@ -168,27 +198,8 @@ function Tile({ block }: { block: BlockSummary }) {
 export function BlockPage() {
   const { id } = useParams({ strict: false }) as { id: string };
   const slots = useSlots();
-  const client = useQueryClient();
   const navigate = useNavigate();
   const { data: block, error } = useQuery({ queryKey: ["block", id], queryFn: () => getBlock(id), retry: false });
-  const [slotName, setSlotName] = useState<string | null>(null);
-  const [scheme, setScheme] = useState<Scheme>(systemScheme);
-  const [report, setReport] = useState<Report>(NO_REPORT);
-  const [showSource, setShowSource] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const code = useMemo(() => (showSource && block ? highlighted(block.source) : null), [showSource, block]);
-
-  const change = useMutation({
-    mutationFn: (changes: Parameters<typeof updateBlock>[1]) => updateBlock(id, changes),
-    onSuccess: () => Promise.all([client.invalidateQueries({ queryKey: ["block", id] }), client.invalidateQueries({ queryKey: ["blocks"] })]),
-  });
-  const remove = useMutation({
-    mutationFn: () => deleteBlock(id),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["blocks"] });
-      await navigate({ to: "/" });
-    },
-  });
 
   if (error) {
     return (
@@ -203,12 +214,12 @@ export function BlockPage() {
   }
   if (!block || !slots) return <Shell>{null}</Shell>;
 
-  const slot = slots.slots.find((each) => each.name === (slotName ?? block.slot)) ?? slots.slots[0];
-  // Someone a block was shared with sees the block, in its slot, and nothing to change.
+  const slot = slotFor(block, slots.slots);
+  // Someone a block was shared with sees the block, in its room, and nothing to change.
   if (!block.mine) {
     return (
       <div className="shared">
-        <Stage html={block.source} slot={slot} scheme={scheme} title={block.name} sample={block.sample} />
+        <Stage html={block.source} slot={slot} scheme={systemScheme()} title={block.name} sample={block.sample} />
         <footer>
           <span>{block.name}</span>
           <Link to="/">made with block</Link>
@@ -217,60 +228,167 @@ export function BlockPage() {
     );
   }
 
+  return <OwnBlock block={block} slots={slots.slots} onRemoved={() => void navigate({ to: "/" })} />;
+}
+
+/** One of the person's blocks, in the gallery: drawn as it is, with Share, Embed (html that needs nothing), Edit (in the chat) and Delete. */
+function OwnBlock({ block, slots, onRemoved }: { block: Block; slots: SlotInfo[]; onRemoved: () => void }) {
+  const client = useQueryClient();
+  const navigate = useNavigate();
+  const [errors, setErrors] = useState<string[]>([]);
+  const [height, setHeight] = useState<number | null>(null);
+  const [embedding, setEmbedding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const slot = slotFor(block, slots);
+  const change = useMutation({
+    mutationFn: (changes: Parameters<typeof updateBlock>[1]) => updateBlock(block.id, changes),
+    onSuccess: () => Promise.all([client.invalidateQueries({ queryKey: ["block", block.id] }), client.invalidateQueries({ queryKey: ["blocks"] })]),
+  });
+  const remove = useMutation({
+    mutationFn: () => deleteBlock(block.id),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ["blocks"] });
+      onRemoved();
+    },
+  });
   const address = `${location.origin}/b/${block.id}`;
   return (
     <Shell>
-      <main className="one">
-        <div className="title">
-          <h1>{block.name}</h1>
-          <span>changed {when(block.updated_at)}</span>
-        </div>
-        <Controls slots={slots.slots} slot={slot.name} onSlot={setSlotName} scheme={scheme} onScheme={setScheme}>
-          {slot.name !== block.slot && (
-            <button className="quiet" onClick={() => change.mutate({ slot: slot.name })} title={`It was written for ${block.slot}`}>
-              Keep it in {slot.name}
+      <main className="gallery-one">
+        <header className="head">
+          <div className="title">
+            <h1>{block.name}</h1>
+            <p className="meta">
+              {roomText(roomOf(block, slots))} · changed {when(block.updated_at)}
+            </p>
+          </div>
+          <div className="actions">
+            <button className="icon-only" aria-label="Delete" title="Delete" onClick={() => setDeleting(true)}>
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+              </svg>
             </button>
-          )}
-          <span className="spacer" />
-          <div className="tabs" role="tablist" aria-label="What is shown">
-            <button role="tab" aria-selected={!showSource} onClick={() => setShowSource(false)}>
-              Block
+            <button className={`quiet${block.shared ? " on" : ""}`} title={block.shared ? "Anyone with its address sees it. Click to stop sharing" : "Only you see it"} onClick={() => change.mutate({ shared: !block.shared })}>
+              {block.shared ? "Shared" : "Share"}
             </button>
-            <button role="tab" aria-selected={showSource} onClick={() => setShowSource(true)}>
-              Code
+            {block.shared && (
+              <button
+                className="quiet"
+                onClick={() => {
+                  void navigator.clipboard.writeText(address).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  });
+                }}
+              >
+                {copied ? "Copied" : "Copy address"}
+              </button>
+            )}
+            <button className="quiet" onClick={() => setEmbedding(true)}>
+              Embed
+            </button>
+            <button className="solid" onClick={() => void navigate({ to: "/make", search: { block: block.id } as never })}>
+              Edit
             </button>
           </div>
-          <button className="quiet" onClick={() => change.mutate({ shared: !block.shared })}>
-            {block.shared ? "Stop sharing" : "Share"}
-          </button>
-          {block.shared && (
-            <button
-              className="quiet"
-              onClick={() => {
-                void navigator.clipboard.writeText(address).then(() => {
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                });
-              }}
-            >
-              {copied ? "Copied" : "Copy its address"}
-            </button>
-          )}
-          <button className="quiet icon danger" aria-label="Delete" title="Delete" onClick={() => confirm(`Delete "${block.name}" for good?`) && remove.mutate()}>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
-            </svg>
-          </button>
-        </Controls>
-        {/* The code takes the block's place. The block stays where it is, unseen, so it keeps its size and what it was doing. */}
-        <div className={`view${showSource ? " view--code" : ""}`}>
-          <Stage html={block.source} slot={slot} scheme={scheme} title={block.name} sample={block.sample} onReport={setReport} />
-          {showSource && <pre className="source">{code}</pre>}
-        </div>
-        <Reported report={report} slot={slot} />
+        </header>
+        <Stage
+          html={block.source}
+          slot={slot}
+          scheme={systemScheme()}
+          title={block.name}
+          sample={block.sample}
+          onReport={(report) => {
+            setErrors(report.errors);
+            if (report.size?.height) setHeight(report.size.height);
+          }}
+        />
+        {errors.length > 0 && (
+          <ul className="problems">
+            {errors.map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+        )}
         {change.error && <p className="error">{change.error.message}</p>}
+        {embedding && <EmbedWindow block={block} slot={slot} height={height ?? slot.height?.max ?? 400} onClose={() => setEmbedding(false)} />}
+        {deleting && (
+          <div className="veil" onMouseDown={(event) => event.target === event.currentTarget && setDeleting(false)}>
+            <div className="window window--ask" role="alertdialog" aria-modal="true">
+              <p>Delete “{block.name}” for good? Its address stops working; html already embedded keeps showing it.</p>
+              <div className="window-foot">
+                <button className="text" onClick={() => setDeleting(false)}>
+                  Cancel
+                </button>
+                <button className="solid" autoFocus onClick={() => remove.mutate()}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </Shell>
+  );
+}
+
+/** The block as html that needs nothing: an iframe to paste anywhere, or a page of its own to download. */
+function EmbedWindow({ block, slot, height, onClose }: { block: Block; slot: Slot; height: number; onClose: () => void }) {
+  const [made, setMade] = useState<{ page: string; snippet: string } | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [scheme, setScheme] = useState<Scheme>(systemScheme);
+  useEffect(() => {
+    setMade(null);
+    embedOf(block, slot, height, scheme).then(setMade, (error: Error) => setProblem(error.message));
+  }, [block, slot, height, scheme]);
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => event.key === "Escape" && onClose();
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const download = () => {
+    if (!made) return;
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([made.page], { type: "text/html" }));
+    link.download = `${block.name.replace(/[^\w -]+/g, "").trim() || "block"}.html`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  };
+  const kb = made ? Math.round(new Blob([made.snippet]).size / 1024) : 0;
+  return (
+    <div className="veil" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div className="window" role="dialog" aria-modal="true" aria-label="Embed">
+        <h2>Embed</h2>
+        <p className="hint">The whole block in html: its libraries and its data inside, nothing fetched, the same wherever it is pasted. Paste the snippet in a page, or download it as a page of its own.</p>
+        {problem && <p className="pane-problem">{problem}</p>}
+        {made ? <pre className="embed-code">{made.snippet.slice(0, 1200)}{made.snippet.length > 1200 ? "\n…" : ""}</pre> : !problem && <p className="hint">Putting it together…</p>}
+        <div className="window-foot">
+          <button className="text" onClick={() => setScheme(scheme === "dark" ? "light" : "dark")} title="Its ground, whatever the page around it">
+            {scheme === "dark" ? "Dark" : "Light"}
+          </button>
+          <span className="hint">{made ? `${kb} KB` : ""}</span>
+          <span className="spacer" />
+          <button className="text" disabled={!made} onClick={download}>
+            Download .html
+          </button>
+          <button
+            className="solid"
+            disabled={!made}
+            onClick={() => {
+              if (!made) return;
+              void navigator.clipboard.writeText(made.snippet).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              });
+            }}
+          >
+            {copied ? "Copied" : "Copy html"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -278,7 +396,6 @@ export function BlockPage() {
 
 export function TryPage() {
   const slots = useSlots();
-  const navigate = useNavigate();
   const [source, setSource] = useState(EXAMPLES[0].source);
   const [shown, setShown] = useState(source);
   const [slotName, setSlotName] = useState(EXAMPLES[0].slot);
@@ -291,10 +408,6 @@ export function TryPage() {
     return () => clearTimeout(later);
   }, [source]);
 
-  const keep = useMutation({
-    mutationFn: () => createBlock({ name: prompt("A name for this block")?.trim() || "Untitled", source, slot: slotName }),
-    onSuccess: (block) => navigate({ to: "/b/$id", params: { id: block.id } }),
-  });
 
   if (!slots) return <Shell>{null}</Shell>;
   const slot = slots.slots.find((each) => each.name === slotName) ?? slots.slots[0];
@@ -321,12 +434,6 @@ export function TryPage() {
             ))}
           </select>
           <textarea spellCheck={false} value={source} onChange={(event) => setSource(event.target.value)} aria-label="The block's html" />
-          {signedIn() && (
-            <button onClick={() => keep.mutate()} disabled={keep.isPending}>
-              Keep this block
-            </button>
-          )}
-          {keep.error && <p className="error">{keep.error.message}</p>}
         </section>
         <section className="see">
           <Controls slots={slots.slots} slot={slot.name} onSlot={setSlotName} scheme={scheme} onScheme={setScheme} />

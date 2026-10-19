@@ -2,9 +2,9 @@ table:
   name: drafts
   schema: public
 object_relationships:
-  - name: base
+  - name: block
     using:
-      foreign_key_constraint_on: based_on
+      foreign_key_constraint_on: block_id
 insert_permissions:
   - role: user
     permission:
@@ -17,10 +17,9 @@ insert_permissions:
         - source
         - name
         - slot
-        - based_on
         - sample
         - room
-        - fields
+        - block_id
 select_permissions:
   - role: user
     permission:
@@ -35,10 +34,9 @@ update_permissions:
         - source
         - name
         - slot
-        - based_on
         - sample
         - room
-        - fields
+        - block_id
       filter:
         user_id:
           _eq: X-Hasura-User-Id

@@ -1,34 +1,41 @@
 /**
- * The layout chat: a conversation with the person's own model, which writes their live draft and answers their
+ * The block chat: a conversation with the person's own model, which writes their live draft and answers their
  * questions. Each write_draft is drawn at once on the page that is open (it asks for the draft's version every
- * second), so the block changes while the model is still working. Publishing waits for the person's Approve.
+ * second), so the block changes while the model is still working. Saving waits for the person's Approve.
  *
  * The loop, the draft tools and the writing rules are the package's (`runTurn`, `DRAFT_TOOLS`, `instructions`),
  * the same any app uses; what is block's own is here: the tools on its blocks, and the system prompt.
  */
-import { asFunctions, DRAFT_TOOLS, fieldsText, instructions, runTurn, selfHost, slotText, type Field, type Room } from "@ghostmind-dev/block";
+import { asFunctions, DRAFT_TOOLS, instructions, runTurn, selfHost, slotText, type Room } from "@ghostmind-dev/block";
 import { aiFor, type ChatMessage } from "../ai/openrouter.ts";
 import { lookUpLibrary } from "../blocks/check.ts";
-import { getBlock, listBlocks } from "../blocks/store.ts";
+import { listBlocks } from "../blocks/store.ts";
 import { env } from "../env.ts";
-import { draftAdvice, loadDraft, publishDraft, publishPlan, readDraft, slotOf, writeDraft } from "./store.ts";
+import { draftAdvice, loadDraft, readDraft, saveDraft, savePlan, slotOf, writeDraft } from "./store.ts";
+
+// The package's draft tools, without the data a block of an app reads through self(): here a block is its html.
+const OWN = new Set(["source", "name", "room"]);
+const draftTools = DRAFT_TOOLS.map((tool) =>
+  tool.name === "write_draft"
+    ? {
+        ...tool,
+        description: "Write the draft: any of the whole source (it replaces what is there), its name, its room (width and height). Give only what changes. It is drawn again on the person's screen at each write: a first version at once, then step by step. The answer lists what is seen wrong in the source, and advice on how it fits its room; act on both in the next write.",
+        parameters: { ...tool.parameters, properties: Object.fromEntries(Object.entries(tool.parameters.properties as Record<string, unknown>).filter(([key]) => OWN.has(key))) },
+      }
+    : tool,
+);
 
 const TOOLS = [
-  ...DRAFT_TOOLS,
+  ...draftTools,
   {
     name: "load_draft",
-    description: "Start the draft from one of the person's layouts: its source, name, room, fields and sample replace the draft's, and a publish then replaces that layout. The draft's current source is lost: ask first when it has work that was not published.",
+    description: "Start the draft from one of the person's blocks: its source, name and room replace the draft's, and a save then replaces that block. The draft's current source is lost: ask first when it has work that was not saved.",
     parameters: { type: "object", properties: { id: { type: "string", description: "The block's id, from list_blocks" } }, required: ["id"], additionalProperties: false },
   },
   {
     name: "list_blocks",
-    description: "The person's blocks, the last changed first: id, name, slot, whether it is shared. Sources are left out; get_block returns one.",
+    description: "The person's blocks, the last changed first: id and name.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
-  },
-  {
-    name: "get_block",
-    description: "One of the person's blocks in full, with its source.",
-    parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"], additionalProperties: false },
   },
   {
     name: "list_libraries",
@@ -37,34 +44,31 @@ const TOOLS = [
   },
 ];
 
-/** What a block of this app may ask for: the object it shows. Here, the draft's made-up data. */
+/** What a block of this app may ask for: the data a block keeps apart from its html, when it has any. */
 export const BLOCK_HOST = selfHost("block");
 
-const ROLE = `You are the layout chat of block (${env.publicUrl}), a playground where layouts are made for the apps that show them (Potion, tags.city, Relay). The person makes ONE layout here, for a room and a set of data they set themselves (below): you write it in their live draft, which is drawn next to this chat, in that room, and drawn again each time you write it. They watch it change.
+const ROLE = `You are the chat of block (${env.publicUrl}), where html blocks are made and tried: a chart, a card, a small page, a widget, a drawing, a game. The person makes or changes ONE block here: you write it in their live draft, which is drawn next to this chat and drawn again each time you write it. They watch it change.
 
-- The layout shows one object, which it gets with \`await block.self()\`: never written into the source. Its fields are the person's (below); in an app, each is one of the app's own values (potion.self().name). Read only those fields. While it is made, self() answers the draft's sample: made-up data you write with write_draft (sample), with exactly those fields, realistic and specific (real-sounding names, dates, numbers), never lorem ipsum. Write the sample first, then the layout that reads it. Nothing is required: a field that is missing is simply not drawn.
-- Everything is yours to change when the person asks: the look, the fields (what self() answers, with their kinds), the room (width and height), the sample. write_draft takes any of them; give the fields and the sample together when the fields change, so the sample keeps exactly the fields.
 - Write early: a first version at once, then improve it in steps, each one a whole source. Do not paste the source in the chat; the person sees the block, and the Code tab shows it.
+- The content is in the html itself: real and specific when the person gave it; ask for what you do not know, never make up a fact about a real place or person.
 - Questions are welcome: answer them plainly. Not every message asks for a change.
 - Before changing a draft you did not write in this conversation, read it (read_draft): the person or another agent may have changed it.
 - write_draft answers with what is seen wrong in the source: fix it in the next write. A block that throws shows its error to the person, not to you; when they say it is blank or broken, ask what the error says.
-- publish_draft only when the person asks to keep it. It waits for their approval.
+- save_draft only when the person asks to keep it. It waits for their approval. Saving shares nothing: sharing is the person's, in the gallery.
 - Be brief: a sentence or two on what changed, or the answer.`;
 
-/** The system prompt: who the chat is, the rules of a block in its one place, and where the draft is now. */
+/** The system prompt: who the chat is, the rules of a block in its room, and where the draft is now. */
 async function system(userId: string) {
   const draft = await readDraft(userId);
   const slot = slotOf(draft);
   const now = draft.source.trim()
-    ? `THE DRAFT NOW: "${draft.name ?? "untitled"}", ${Buffer.byteLength(draft.source)} bytes${draft.based_on ? `, started from the block "${draft.based_on.name}" (a publish replaces it)` : ", not published"}. read_draft gives its source.`
-    : "THE DRAFT NOW: empty. Start it with write_draft: the sample, then the block.";
+    ? `THE DRAFT NOW: "${draft.name ?? "untitled"}", ${Buffer.byteLength(draft.source)} bytes${draft.based_on ? `, opened from the block "${draft.based_on.name}" (a save replaces it)` : ", not saved"}. read_draft gives its source.`
+    : "THE DRAFT NOW: empty. Start it with write_draft.";
   return [
     ROLE,
     instructions({
       slots: slot ? [slot] : [],
-      host: BLOCK_HOST,
-      calls: { self: `the object this layout shows, with the fields ${draft.fields.length ? fieldsText(draft.fields) : "(none set yet: ask the person which data it shows)"}. While it is made: the draft's sample (null until you write one)` },
-      sample: draft.sample ?? undefined,
+      ...(draft.sample ? { host: BLOCK_HOST, calls: { self: "the data this block keeps apart from its html" }, sample: draft.sample } : {}),
     }),
     now,
   ].join("\n\n");
@@ -76,29 +80,21 @@ async function run(userId: string, name: string, args: Record<string, unknown>) 
     case "read_draft":
       return readDraft(userId);
     case "write_draft": {
-      const object = (value: unknown) => (value && typeof value === "object" ? value : undefined);
-      const { draft, problems } = await writeDraft(userId, {
-        source: text(args.source),
-        name: text(args.name),
-        sample: object(args.sample),
-        room: object(args.room) as Room | undefined,
-        fields: Array.isArray(args.fields) ? (args.fields as Field[]) : undefined,
-      });
+      const room = args.room && typeof args.room === "object" ? (args.room as Room) : undefined;
+      const { draft, problems } = await writeDraft(userId, { source: text(args.source), name: text(args.name), room });
       const advice = draftAdvice(draft);
-      return { written: true, version: draft.version, name: draft.name, room: slotText(slotOf(draft)), fields: fieldsText(draft.fields), problems: problems.length ? problems : undefined, advice: advice.length ? advice : undefined };
+      return { written: true, version: draft.version, name: draft.name, room: slotText(slotOf(draft)), problems: problems.length ? problems : undefined, advice: advice.length ? advice : undefined };
     }
-    case "publish_draft": {
-      const block = await publishDraft(userId, { name: text(args.name), as_new: args.as_new === true });
-      return { published: true, id: block.id, name: block.name, url: `${env.publicUrl}/b/${block.id}` };
+    case "save_draft": {
+      const kept = await saveDraft(userId, { name: text(args.name), as_new: args.as_new === true });
+      return { saved: true, ...kept, url: `${env.publicUrl}/b/${kept.id}` };
     }
     case "load_draft": {
       const draft = await loadDraft(userId, String(args.id ?? ""));
       return { loaded: true, name: draft.name, version: draft.version };
     }
     case "list_blocks":
-      return { blocks: await listBlocks(userId) };
-    case "get_block":
-      return (await getBlock(userId, String(args.id ?? ""))) ?? { error: "no block of the person's has that id: list_blocks has the ids" };
+      return { blocks: (await listBlocks(userId)).map(({ id, name }) => ({ id, name })) };
     case "list_libraries":
       return lookUpLibrary(text(args.name));
     default:
@@ -120,7 +116,7 @@ export async function chatTurn(userId: string, input: ChatInput, signal?: AbortS
     converse: ({ messages }: { messages: ChatMessage[] }) => ai.converse({ messages, tools: asFunctions(TOOLS), signal }),
     tools: TOOLS,
     run: (name: string, args: Record<string, unknown>) => run(userId, name, args),
-    describe: (name: string, args: Record<string, unknown>) => (name === "publish_draft" ? { summary: publishPlan(draft, args) } : { summary: `Run ${name}` }),
+    describe: (name: string, args: Record<string, unknown>) => (name === "save_draft" ? { summary: savePlan(draft, args) } : { summary: `Run ${name}` }),
     system: await system(userId),
     messages: input.messages.slice(-80),
     text: input.text,

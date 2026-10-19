@@ -4,9 +4,9 @@ import { offeredModels } from "../ai/models.ts";
 import { aiStatus, chooseModel, connect, disconnect } from "../ai/openrouter.ts";
 import { currentUser, requireUser } from "../auth/google.ts";
 import { chatTurn } from "../drafts/chat.ts";
-import { draftProblems, draftVersion, loadDraft, newDraft, publishDraft, readDraft, writeDraft } from "../drafts/store.ts";
+import { draftProblems, draftVersion, loadDraft, newDraft, readDraft, saveDraft, writeDraft } from "../drafts/store.ts";
 
-/** The layout chat's API: the person's OpenRouter account, their live draft, and a turn of the chat. Signed in. */
+/** The block chat's API: the person's OpenRouter account, their live draft, and a turn of the chat. Signed in. */
 export const make = Router();
 
 const safely = (handler: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => {
@@ -41,7 +41,6 @@ make.delete("/api/ai", safely(async (_req, res) => (await disconnect(currentUser
 
 const Side = z.object({ min: z.number().int().optional(), max: z.number().int().optional() }).nullable();
 const Room = z.object({ width: Side, height: Side });
-const Field = z.object({ key: z.string(), type: z.string() });
 
 // The live draft, with what is seen wrong in it. `?since=12` answers 204 while the version is still 12: what an open page asks each second.
 make.get(
@@ -64,13 +63,12 @@ make.patch(
         name: z.string().max(120).nullable().optional(),
         sample: z.record(z.string(), z.unknown()).nullable().optional(),
         room: Room.optional(),
-        fields: z.array(Field).optional(),
-        // a block of the person's to start from, or a new empty layout with its room and data
+        // one of the person's blocks to start from, or a new empty block (in a room); fresh also throws the draft away
         from: z.string().optional(),
-        fresh: z.object({ room: Room, fields: z.array(Field).optional(), name: z.string().max(120).nullable().optional() }).optional(),
+        fresh: z.object({ room: Room.optional(), name: z.string().max(120).nullable().optional() }).optional(),
       })
       .safeParse(req.body);
-    if (!body.success) return invalid(res, "source, name, sample, room, fields; or from (a block's id, to start from it); or fresh ({ room, fields, name }, a new empty layout)");
+    if (!body.success) return invalid(res, "source, name, sample, room; or from (a block's id, to start from it); or fresh ({ room, name }, a new empty block)");
     const uid = currentUser(res).id;
     if (body.data.from) return res.json({ draft: await loadDraft(uid, body.data.from), problems: [] });
     if (body.data.fresh) return res.json({ draft: await newDraft(uid, body.data.fresh), problems: [] });
@@ -78,14 +76,14 @@ make.patch(
     return res.json(await writeDraft(uid, changes));
   }),
 );
-// The page's own Publish button: the person pressing it is the approval.
+// The page's own Save button: the person pressing it is the approval.
 make.post(
-  "/api/draft/publish",
+  "/api/draft/save",
   json(),
   safely(async (req, res) => {
     const body = z.object({ name: z.string().min(1).max(120).optional(), as_new: z.boolean().optional() }).safeParse(req.body ?? {});
     if (!body.success) return invalid(res, "name, as_new");
-    return res.json(await publishDraft(currentUser(res).id, body.data));
+    return res.json(await saveDraft(currentUser(res).id, body.data));
   }),
 );
 

@@ -1,8 +1,8 @@
-import { FIELD_TYPES, publishing, roomSlot, type Slot } from "@ghostmind-dev/block";
+import { saving } from "@ghostmind-dev/block";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { chatTurn, chooseModel, deleteBlock, disconnectAi, updateBlock, getAi, getBlock, getDraft, getModels, listBlocks, publishDraft, writeDraft, type AiStatus, type BlockSummary, type CatalogModel, type ChatMessage, type ChatTurn, type Draft, type Field, type Room } from "./api";
+import { chatTurn, chooseModel, disconnectAi, getAi, getDraft, getModels, saveDraft, writeDraft, type AiStatus, type CatalogModel, type ChatMessage, type ChatTurn, type Draft, type Room } from "./api";
 import { signedIn, signIn } from "./auth";
 import { NO_REPORT, type Report } from "./frame";
 import { connectAi, finishConnectAi } from "./openrouter";
@@ -11,10 +11,9 @@ import { roomOf, roomText, slotFor } from "./room";
 import { Shell, systemScheme, useSlots } from "./pages";
 import { Stage } from "./stage";
 
-// ---- the layouts: block is the playground where a layout is made for the apps that show it. The person's
-// layouts are on the left; one is drawn on the right. Editing one turns the left into a chat with their own
-// model, which writes the live draft; the draft is drawn again each time anyone writes it (the chat, an agent
-// on the MCP, the Code and Data panes). A layout's room and the data it shows are the person's to set.
+// ---- the editor: one block, made or changed with the person's own model. The chat is on the left; the block is on
+// the right, drawn again each time anyone writes the live draft (the chat, an agent on the MCP, the Code pane).
+// `/make?block=<id>` opens one of the person's blocks in it; `/make?new` starts an empty one.
 
 const POLL_MS = 1000;
 const KEPT = "block.chat";
@@ -23,10 +22,9 @@ const KEPT = "block.chat";
 const STEPS: Record<string, string> = {
   read_draft: "Read the draft",
   write_draft: "Wrote the draft",
-  publish_draft: "Published it",
-  load_draft: "Opened a layout",
-  list_blocks: "Looked at your layouts",
-  get_block: "Read a layout",
+  save_draft: "Saved it",
+  load_draft: "Opened a block",
+  list_blocks: "Looked at your blocks",
   list_libraries: "Looked up a library",
 };
 
@@ -72,131 +70,106 @@ const keepChat = (messages: ChatMessage[]) => {
   }
 };
 
-// ---- a layout's room and data, in words and as a slot
-
-
 export function MakePage() {
   if (!signedIn()) {
     return (
       <Shell>
         <main className="welcome">
-          <h1>Layouts</h1>
-          <p>Sign in to make layouts with your own model: set the room and the data, describe it, and watch it drawn while it is written.</p>
+          <h1>Make a block</h1>
+          <p>Sign in to make blocks with your own model: describe one, and watch it drawn while it is written.</p>
           <button onClick={() => void signIn()}>Sign in with Google</button>
         </main>
       </Shell>
     );
   }
-  return <Layouts />;
+  return <Editor />;
 }
 
-function Layouts() {
+function Editor() {
   const slots = useSlots();
   const client = useQueryClient();
+  const navigate = useNavigate();
   const { data: ai } = useQuery({ queryKey: ["ai"], queryFn: getAi });
-  const { data: layouts } = useQuery({ queryKey: ["blocks"], queryFn: listBlocks });
   const draft = useDraft();
-  const [selected, setSelected] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [settings, setSettings] = useState<"new" | "edit" | null>(null);
-  // Another layout is another conversation.
+  const [sizing, setSizing] = useState(false);
+  // Another block is another conversation.
   const [round, setRound] = useState(0);
   const [asking, ask] = useAsk();
-
-  const shown = selected ?? layouts?.[0]?.id ?? null;
-  if (!slots || !layouts || !draft.current) return <Shell>{null}</Shell>;
-  const current = draft.current;
-  const unpublished = Boolean(current.source.trim()) && !current.based_on;
 
   const startOver = () => {
     keepChat([]);
     setRound((n) => n + 1);
   };
-  const edit = async (id: string) => {
-    if (current.based_on?.id !== id) {
-      if (unpublished && !(await ask(`“${current.name ?? "Untitled layout"}” was not published. Opening another layout replaces it.`, "Open it"))) return;
-      await draft.write({ from: id });
-      startOver();
-    }
-    setEditing(true);
-  };
 
-  // Editing is the whole window: the chat and the layout, nothing above them.
-  const Frame = editing ? FullPage : Shell;
+  // What the address asks for: one of the person's blocks (`?block=<id>`), or an empty one (`?new`).
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || !draft.current) return;
+    opened.current = true;
+    const asked = new URLSearchParams(location.search);
+    const id = asked.get("block");
+    const current = draft.current;
+    const unsaved = Boolean(current.source.trim()) && !current.based_on;
+    void (async () => {
+      history.replaceState(null, "", "/make");
+      if (id && current.based_on?.id === id) return;
+      if (!id && !asked.has("new")) return;
+      if (unsaved && !(await ask(`“${current.name ?? "Untitled"}” was not saved. Starting another throws it away.`, "Throw it away"))) return;
+      await draft.write(id ? { from: id } : { fresh: {} });
+      startOver();
+    })();
+  }, [draft, ask]);
+
+  if (!slots || !draft.current) return <FullPage>{null}</FullPage>;
+  const current = draft.current;
+
   return (
-    <Frame>
-      <main className={`layouts${editing ? " layouts--editing" : ""}`}>
+    <FullPage>
+      <main className="editor">
         <aside className="side">
-          {editing ? (
-            <>
-              <button
-                className="back"
-                onClick={() => {
-                  setEditing(false);
-                  setSelected(current.based_on?.id ?? selected);
-                }}
-              >
-                ← Layouts
-              </button>
-              {ai && (ai.connected ? <Chat key={round} ai={ai} /> : <Connect />)}
-            </>
-          ) : (
-            <LayoutList layouts={layouts} slots={slots.slots} shown={shown} onShow={setSelected} onNew={() => setSettings("new")} draft={current.version > 0 && !current.based_on ? current : null} onDraft={() => setEditing(true)} />
-          )}
+          <Link to="/" className="back">
+            ← Gallery
+          </Link>
+          {ai && (ai.connected ? <Chat key={round} ai={ai} /> : <Connect />)}
         </aside>
         <section className="main">
-          {editing ? (
-            <Workspace draft={draft} slots={slots.slots} ask={ask} onSettings={() => setSettings("edit")} onPublished={() => void client.invalidateQueries({ queryKey: ["blocks"] })} />
-          ) : shown ? (
-            <LayoutView
-              id={shown}
-              slots={slots.slots}
-              onShow={setSelected}
-              onEdit={() => void edit(shown)}
-              onDelete={async (name) => {
-                if (!(await ask(`Delete “${name}” for good? Its address stops working too.`, "Delete"))) return;
-                await deleteBlock(shown);
-                setSelected(null);
-                await client.invalidateQueries({ queryKey: ["blocks"] });
-              }}
-            />
-          ) : (
-            <div className="nothing">
-              <p>No layouts yet.</p>
-              <button className="solid" onClick={() => setSettings("new")}>
-                New layout
-              </button>
-            </div>
-          )}
+          <Workspace
+            draft={draft}
+            ask={ask}
+            room={roomOf(current, slots.slots)}
+            slot={slotFor(current, slots.slots)}
+            onSize={() => setSizing(true)}
+            onSaved={(kept) => {
+              void client.invalidateQueries({ queryKey: ["blocks"] });
+              void client.invalidateQueries({ queryKey: ["block", kept.id] });
+            }}
+            onOpen={(id) => void navigate({ to: "/b/$id", params: { id } })}
+            onDiscard={async () => {
+              if (!(await ask(`Throw away “${current.name ?? "Untitled"}”? It was never saved.`, "Throw it away"))) return;
+              await draft.write({ fresh: {} });
+              startOver();
+            }}
+          />
         </section>
-        {settings && (
-          <RoomAndData
-            title={settings === "new" ? "New layout" : "Room & data"}
-            action={settings === "new" ? "Create" : "Save"}
-            initial={settings === "new" ? { name: "", room: { width: { max: 480 }, height: null }, fields: [{ key: "name", type: "text" }] } : { name: current.name ?? "", room: roomOf(current, slots.slots), fields: current.fields }}
-            onClose={() => setSettings(null)}
-            onSave={async ({ name, room, fields }) => {
-              if (settings === "new") {
-                if (unpublished && !(await ask(`“${current.name ?? "Untitled layout"}” was not published. A new layout replaces it.`, "Start a new one"))) return;
-                await draft.write({ fresh: { room, fields, name: name || null } });
-                startOver();
-                setEditing(true);
-              } else {
-                await draft.write({ room, fields, name: name || null });
-              }
-              setSettings(null);
+        {sizing && (
+          <SizeWindow
+            initial={{ name: current.name ?? "", room: roomOf(current, slots.slots) }}
+            onClose={() => setSizing(false)}
+            onSave={async ({ name, room }) => {
+              await draft.write({ room, name: name || null });
+              setSizing(false);
             }}
           />
         )}
         {asking}
       </main>
-    </Frame>
+    </FullPage>
   );
 }
 
 type Question = { text: string; yes: string; resolve: (ok: boolean) => void };
 
-/** A question asked on the page, never in a browser dialog: `await ask("…", "Publish")` is true on yes. */
+/** A question asked on the page, never in a browser dialog: `await ask("…", "Save")` is true on yes. */
 function useAsk() {
   const [question, setQuestion] = useState<Question | null>(null);
   const ask = useCallback((text: string, yes: string) => new Promise<boolean>((resolve) => setQuestion({ text, yes, resolve })), []);
@@ -233,188 +206,14 @@ function Ask({ text, yes, onAnswer }: { text: string; yes: string; onAnswer: (ok
 
 const FullPage = ({ children }: { children: ReactNode }) => <div className="full">{children}</div>;
 
-function LayoutList({ layouts, slots, shown, onShow, onNew, draft, onDraft }: { layouts: BlockSummary[]; slots: Slot[]; shown: string | null; onShow: (id: string) => void; onNew: () => void; draft: Draft | null; onDraft: () => void }) {
-  return (
-    <nav className="list" aria-label="Your layouts">
-      <div className="list-head">
-        <h2>Layouts</h2>
-        <button className="text" onClick={onNew}>
-          New
-        </button>
-      </div>
-      <ul>
-        {draft && (
-          <li>
-            <button onClick={onDraft} title="Not published yet: open it to go on">
-              <span>{draft.name ?? "Untitled layout"}</span>
-              <small>draft · {roomText(roomOf(draft, slots))}</small>
-            </button>
-          </li>
-        )}
-        {layouts
-          .filter((layout) => !layout.layout_id)
-          .map((layout) => (
-            <li key={layout.id}>
-              <button aria-current={layout.id === shown} onClick={() => onShow(layout.id)}>
-                <span>{layout.name}</span>
-                <small>{roomText(roomOf(layout, slots))}</small>
-              </button>
-            </li>
-          ))}
-      </ul>
-      {layouts.some((layout) => layout.layout_id) && (
-        <>
-          <div className="list-head list-head--second">
-            <h2>Blocks</h2>
-          </div>
-          <ul>
-            {layouts
-              .filter((block) => block.layout_id)
-              .map((block) => (
-                <li key={block.id}>
-                  <button aria-current={block.id === shown} onClick={() => onShow(block.id)}>
-                    <span>{block.name}</span>
-                    <small>from {block.layout?.name ?? "a layout"}</small>
-                  </button>
-                </li>
-              ))}
-          </ul>
-        </>
-      )}
-    </nav>
-  );
-}
-
-/** One layout as it is kept: drawn in its room with its data, and the way into editing it. */
-function LayoutView({ id, slots, onEdit, onDelete, onShow }: { id: string; slots: Slot[]; onEdit: () => void; onDelete: (name: string) => Promise<void>; onShow: (id: string) => void }) {
-  const { data: layout } = useQuery({ queryKey: ["block", id], queryFn: () => getBlock(id) });
-  const [errors, setErrors] = useState<string[]>([]);
-  const [embedding, setEmbedding] = useState(false);
-  const [size, setSize] = useState<number | null>(null);
-  if (!layout) return null;
-  const slot = slotFor(layout, slots);
-  return (
-    <>
-      <header className="head">
-        <div className="title">
-          <h1>{layout.name}</h1>
-          {layout.layout ? (
-            <p className="meta">
-              from{" "}
-              <button className="meta meta--button" onClick={() => onShow(layout.layout!.id)}>
-                {layout.layout.name}
-              </button>{" "}
-              · its own data: {Object.keys((layout.sample as object | null) ?? {}).join(", ") || "none"}
-            </p>
-          ) : (
-            <Meta room={roomOf(layout, slots)} fields={layout.fields ?? []} />
-          )}
-        </div>
-        <div className="actions">
-          <ShareButton id={layout.id} shared={layout.shared} />
-          {layout.shared && (
-            <button className="quiet" onClick={() => setEmbedding(true)}>
-              Embed
-            </button>
-          )}
-          <button className="icon-only" aria-label="Delete" title="Delete" onClick={() => void onDelete(layout.name)}>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
-            </svg>
-          </button>
-          {!layout.layout && (
-            <button className="solid" onClick={onEdit}>
-              Edit
-            </button>
-          )}
-        </div>
-      </header>
-      <Stage
-        html={layout.source}
-        slot={slot}
-        scheme={systemScheme()}
-        title={layout.name}
-        sample={layout.sample}
-        onReport={(report) => {
-          setErrors(report.errors);
-          if (report.size?.height) setSize(report.size.height);
-        }}
-      />
-      <Errors errors={errors} />
-      {embedding && layout.shared && <Embed id={layout.id} name={layout.name} width={slot.width?.max ?? null} height={size ?? slot.height?.max ?? 400} onClose={() => setEmbedding(false)} />}
-    </>
-  );
-}
-
-/** Shared: its address is public, and it can be embedded. Not shared: only its owner sees it, and every embed is blank. */
-function ShareButton({ id, shared }: { id: string; shared: boolean }) {
-  const client = useQueryClient();
-  const share = useMutation({
-    mutationFn: (on: boolean) => updateBlock(id, { shared: on }),
-    onSuccess: () => Promise.all([client.invalidateQueries({ queryKey: ["block", id] }), client.invalidateQueries({ queryKey: ["blocks"] })]),
-  });
-  return (
-    <button
-      className={`quiet${shared ? " on" : ""}`}
-      disabled={share.isPending}
-      title={shared ? "Anyone with its address sees it, and it can be embedded. Click to stop sharing: every embed goes blank" : "Only you see it. Share it to give it a public address and embed it"}
-      onClick={() => share.mutate(!shared)}
-    >
-      {shared ? "Shared" : "Share"}
-    </button>
-  );
-}
-
-/** The code that shows a shared block on another site: an iframe, and a line that makes it follow the block's height. */
-function Embed({ id, name, width, height, onClose }: { id: string; name: string; width: number | null; height: number; onClose: () => void }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    const onKey = (event: globalThis.KeyboardEvent) => event.key === "Escape" && onClose();
-    addEventListener("keydown", onKey);
-    return () => removeEventListener("keydown", onKey);
-  }, [onClose]);
-  const src = `${location.origin}/e/${id}`;
-  const code = [
-    `<iframe src="${src}" title="${name.replace(/"/g, "&quot;")}" loading="lazy" style="display:block;border:0;width:100%;${width ? `max-width:${width}px;` : ""}height:${height}px"></iframe>`,
-    `<script>addEventListener("message",e=>{if(e.origin==="${location.origin}"&&e.data&&e.data.type==="block-embed-size")for(const f of document.querySelectorAll('iframe[src="${location.origin}/e/'+e.data.id+'"]'))f.style.height=e.data.height+"px"})</script>`,
-  ].join("\n");
-  return (
-    <div className="veil" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="window" role="dialog" aria-modal="true" aria-label="Embed">
-        <h2>Embed</h2>
-        <p className="hint">Paste it in any page. The first line shows the block; the second, optional, makes the frame follow its height. It works while the block is shared.</p>
-        <pre className="embed-code">{code}</pre>
-        <div className="window-foot">
-          <button className="text" onClick={onClose}>
-            Close
-          </button>
-          <button
-            className="solid"
-            onClick={() => {
-              void navigator.clipboard.writeText(code).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              });
-            }}
-          >
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Meta({ room, fields, onClick }: { room: Room; fields: Field[]; onClick?: () => void }) {
-  const text = `${roomText(room)} · ${fields.length ? fields.map((field) => field.key).join(", ") : "no data"}`;
-  return onClick ? (
-    <button className="meta meta--button" onClick={onClick} title="Room & data">
-      {text}
-    </button>
-  ) : (
-    <p className="meta">{text}</p>
-  );
-}
+/** The grey trash button: throws away what it stands beside, after a question on the page. */
+export const Trash = ({ onClick, label = "Delete" }: { onClick: () => void; label?: string }) => (
+  <button className="icon-only" aria-label={label} title={label} onClick={onClick}>
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+    </svg>
+  </button>
+);
 
 const Errors = ({ errors }: { errors: string[] }) =>
   errors.length ? (
@@ -425,69 +224,75 @@ const Errors = ({ errors }: { errors: string[] }) =>
     </ul>
   ) : null;
 
-/** The layout being edited: its name, its room and data, and the draft drawn, as code, or as its data. */
-function Workspace({ draft, slots, ask, onSettings, onPublished }: { draft: ReturnType<typeof useDraft>; slots: Slot[]; ask: (text: string, yes: string) => Promise<boolean>; onSettings: () => void; onPublished: () => void }) {
+/** The block being written: its name and room, and the draft drawn, or its html. */
+function Workspace({ draft, ask, room, slot, onSize, onSaved, onOpen, onDiscard }: { draft: ReturnType<typeof useDraft>; ask: (text: string, yes: string) => Promise<boolean>; room: Room; slot: ReturnType<typeof slotFor>; onSize: () => void; onSaved: (kept: { id: string; name: string }) => void; onOpen: (id: string) => void; onDiscard: () => void }) {
   const current = draft.current!;
-  const [view, setView] = useState<"preview" | "code" | "data">("preview");
+  const [view, setView] = useState<"preview" | "code">("preview");
   const [report, setReport] = useState<Report>(NO_REPORT);
-  const [status, setStatus] = useState<string | null>(null);
-  const publish = useMutation({
-    mutationFn: () => publishDraft(),
-    onSuccess: (block) => {
-      setStatus(`Published as “${block.name}”.`);
-      onPublished();
+  const [saved, setSaved] = useState<{ id: string } | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: () => saveDraft(),
+    onSuccess: (kept) => {
+      setSaved(kept);
+      setProblem(null);
+      onSaved(kept);
     },
-    onError: (error) => setStatus(error.message),
+    onError: (error) => setProblem(error.message),
   });
-  const slot = slotFor(current, slots);
   const empty = !current.source.trim();
   return (
     <>
       <header className="head">
         <div className="title">
           <DraftName draft={current} onWrite={draft.write} />
-          <Meta room={roomOf(current, slots)} fields={current.fields} onClick={onSettings} />
+          <button className="meta meta--button" onClick={onSize} title="Name and size">
+            {roomText(room)}
+          </button>
         </div>
-        <button className="quiet" onClick={onSettings}>
-          Room & data
-        </button>
-        <button className="solid" disabled={empty || publish.isPending} onClick={() => void ask(publishing(current), "Publish").then((ok) => ok && publish.mutate())}>
-          Publish
-        </button>
+        <div className="actions">
+          {!current.based_on && !empty && <Trash onClick={onDiscard} label="Throw away the draft" />}
+          {saved && current.based_on?.id === saved.id && (
+            <button className="quiet" onClick={() => onOpen(saved.id)}>
+              Open
+            </button>
+          )}
+          <button className="solid" disabled={empty || save.isPending} onClick={() => void ask(saving({ ...current, kind: "block" }), "Save").then((ok) => ok && save.mutate())}>
+            Save
+          </button>
+        </div>
       </header>
       <div className="tabs-line" role="tablist" aria-label="What is shown">
-        {(["preview", "code", "data"] as const).map((each) => (
+        {(["preview", "code"] as const).map((each) => (
           <button key={each} role="tab" aria-selected={view === each} onClick={() => setView(each)}>
-            {each === "preview" ? "Preview" : each === "code" ? "Code" : "Data"}
+            {each === "preview" ? "Preview" : "Code"}
           </button>
         ))}
-        {status && <span className="status">{status}</span>}
+        {problem && <span className="status">{problem}</span>}
       </div>
       <div className={`view live${draft.flash ? " live--flash" : ""}${view !== "preview" ? " view--code" : ""}`}>
         {empty ? (
           <div className="draft-empty">
-            <p>Describe the layout in the chat.</p>
+            <p>Describe a block in the chat.</p>
           </div>
         ) : (
-          <Stage html={current.source} slot={slot} scheme={systemScheme()} title={current.name ?? "The draft"} sample={current.sample} onReport={setReport} />
+          <Stage html={current.source} slot={slot} scheme={systemScheme()} title={current.name ?? "The draft"} sample={current.sample ?? undefined} onReport={setReport} />
         )}
-        {view === "code" && <TextPane key="code" label="The layout's html" text={current.source} onSave={(source) => draft.write({ source })} onEditing={draft.setEditing} />}
-        {view === "data" && <DataPane draft={current} onWrite={draft.write} onEditing={draft.setEditing} />}
+        {view === "code" && <TextPane key="code" label="The block's html" text={current.source} onSave={(source) => draft.write({ source })} onEditing={draft.setEditing} />}
       </div>
       <Errors errors={[...draft.problems, ...report.errors]} />
     </>
   );
 }
 
-/** A window over the page: the layout's name, its room and the data it shows. */
-function RoomAndData({ title, action, initial, onClose, onSave }: { title: string; action: string; initial: { name: string; room: Room; fields: Field[] }; onClose: () => void; onSave: (value: { name: string; room: Room; fields: Field[] }) => Promise<void> }) {
+/** A window over the page: the block's name and the room it is drawn in. */
+function SizeWindow({ initial, onClose, onSave }: { initial: { name: string; room: Room }; onClose: () => void; onSave: (value: { name: string; room: Room }) => Promise<void> }) {
   const [name, setName] = useState(initial.name);
   const mode = (value: Room["width"], none: string) => (!value ? none : value.min && value.min === value.max ? "exactly" : "max");
   const [widthMode, setWidthMode] = useState(mode(initial.room.width, "full"));
   const [width, setWidth] = useState(String(initial.room.width?.max ?? 480));
   const [heightMode, setHeightMode] = useState(mode(initial.room.height, "content"));
   const [height, setHeight] = useState(String(initial.room.height?.max ?? 360));
-  const [fields, setFields] = useState<Field[]>(initial.fields.length ? initial.fields : [{ key: "", type: "text" }]);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -506,22 +311,21 @@ function RoomAndData({ title, action, initial, onClose, onSave }: { title: strin
     setBusy(true);
     setProblem(null);
     try {
-      await onSave({ name: name.trim(), room: { width: sideOf(widthMode, width), height: sideOf(heightMode, height) }, fields: fields.filter((field) => field.key.trim()).map((field) => ({ ...field, key: field.key.trim() })) });
+      await onSave({ name: name.trim(), room: { width: sideOf(widthMode, width), height: sideOf(heightMode, height) } });
     } catch (error) {
       setProblem((error as Error).message);
     } finally {
       setBusy(false);
     }
   };
-  const change = (index: number, patch: Partial<Field>) => setFields(fields.map((field, i) => (i === index ? { ...field, ...patch } : field)));
 
   return (
     <div className="veil" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="window" role="dialog" aria-modal="true" aria-label={title}>
-        <h2>{title}</h2>
+      <div className="window" role="dialog" aria-modal="true" aria-label="Name and size">
+        <h2>Name and size</h2>
         <label className="field">
           <span>Name</span>
-          <input autoFocus value={name} placeholder="Place details" onChange={(event) => setName(event.target.value)} />
+          <input autoFocus value={name} placeholder="Untitled" onChange={(event) => setName(event.target.value)} />
         </label>
         <div className="pair">
           <label className="field">
@@ -549,37 +353,13 @@ function RoomAndData({ title, action, initial, onClose, onSave }: { title: strin
             </div>
           </label>
         </div>
-        <div className="field">
-          <span>Data</span>
-          <p className="hint">
-            What <code>block.self()</code> answers. In an app, each is one of its own values; here, made-up ones. None is required.
-          </p>
-          <div className="rows">
-            {fields.map((field, index) => (
-              <div className="row-field" key={index}>
-                <input value={field.key} placeholder="name" aria-label="Field" onChange={(event) => change(index, { key: event.target.value.replace(/[^a-zA-Z0-9_]/g, "") })} />
-                <select value={field.type} aria-label="Kind" onChange={(event) => change(index, { type: event.target.value })}>
-                  {FIELD_TYPES.map((type) => (
-                    <option key={type}>{type}</option>
-                  ))}
-                </select>
-                <button className="text" aria-label="Remove" onClick={() => setFields(fields.filter((_, i) => i !== index))}>
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-          <button className="text" onClick={() => setFields([...fields, { key: "", type: "text" }])}>
-            + Field
-          </button>
-        </div>
         {problem && <p className="pane-problem">{problem}</p>}
         <div className="window-foot">
           <button className="text" onClick={onClose}>
             Cancel
           </button>
           <button className="solid" disabled={busy} onClick={() => void save()}>
-            {action}
+            Save
           </button>
         </div>
       </div>
@@ -651,8 +431,8 @@ function DraftName({ draft, onWrite }: { draft: Draft; onWrite: (changes: { name
   return (
     <input
       className="name"
-      aria-label="The layout's name"
-      placeholder="Untitled layout"
+      aria-label="The block's name"
+      placeholder="Untitled"
       value={name}
       onChange={(event) => setName(event.target.value)}
       onBlur={() => name.trim() !== (draft.name ?? "") && void onWrite({ name: name.trim() || null })}
@@ -716,22 +496,6 @@ function TextPane({ label, text, onSave, onEditing, check, children }: { label: 
   );
 }
 
-const checkJson = (text: string) => {
-  if (!text.trim()) return null;
-  try {
-    const value = JSON.parse(text);
-    return value && typeof value === "object" && !Array.isArray(value) ? null : "The data is one object: { … }";
-  } catch (error) {
-    return `Not JSON yet: ${(error as Error).message}`;
-  }
-};
-
-/** The made-up data the layout is drawn with: what block.self() answers while it is made. */
-function DataPane({ draft, onWrite, onEditing }: { draft: Draft; onWrite: (changes: { sample: Record<string, unknown> | null }) => Promise<void>; onEditing: (on: boolean) => void }) {
-  const save = useCallback((text: string) => onWrite({ sample: text.trim() ? (JSON.parse(text) as Record<string, unknown>) : null }), [onWrite]);
-  return <TextPane key="data" label="The made-up data, as JSON" text={draft.sample ? JSON.stringify(draft.sample, null, 2) : ""} onSave={save} onEditing={onEditing} check={checkJson} />;
-}
-
 // ---- the chat
 
 function Chat({ ai }: { ai: AiStatus }) {
@@ -792,7 +556,7 @@ function Chat({ ai }: { ai: AiStatus }) {
         </p>
       )}
       <div className="chat-lines">
-        {!lines.length && <p className="chat-hint">Describe the layout, or ask a question. It is drawn on the right while it is written.</p>}
+        {!lines.length && <p className="chat-hint">Describe a block, or ask for a change. It is drawn on the right while it is written.</p>}
         {lines.map((line, index) => (
           <div key={index} className={`line line--${line.kind}`}>
             {line.kind === "step" && <span aria-hidden>✓ </span>}
@@ -817,7 +581,7 @@ function Chat({ ai }: { ai: AiStatus }) {
       <div className="chat-input">
         <textarea
           rows={3}
-          placeholder={pending ? "Approve or decline first" : "Describe the layout, or ask a question"}
+          placeholder={pending ? "Approve or decline first" : "Describe a block, or ask for a change"}
           value={text}
           disabled={Boolean(pending)}
           onChange={(event) => setText(event.target.value)}

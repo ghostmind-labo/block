@@ -126,6 +126,29 @@ A block names what it needs on its first lines and gets each as a global:
 
 Any package on npm can be named. The frame is what keeps a block in, not a list of names. The catalogue (`lib/app/src/catalogue.js`) is what was learned about the ones that were tried.
 
+## Pictures by address
+
+A block may show a picture by its address, written as it is: `<img src="https://…">`. The frame still loads nothing; the page brings each address written in the source before the frame is made, and writes it in as `data:`. An address a script makes at run time is refused by the frame, as before.
+
+```js
+import { makePictures } from "@ghostmind-dev/block";
+const pictures = makePictures({ relay: (address) => fetch(`/api/picture?url=${encodeURIComponent(address)}`) });
+await mount(container, html, { loader, pictures, … });          // bringPictures(source, pictures) for an html of your own
+```
+
+The page fetches from the picture's host. A host that refuses other sites (no CORS) is asked through the app's own route, which says who may ask and calls the package:
+
+```js
+import { relayPicture, PictureError } from "@ghostmind-dev/block/server";
+app.get("/api/picture", async (req, res) => {
+  // who may ask is the app's: here, someone signed in
+  const { type, bytes } = await relayPicture(String(req.query.url));   // https, public addresses only, pictures only, 5 MB
+  res.set({ "content-type": type, "cache-control": "private, max-age=86400" }).send(Buffer.from(bytes));
+});
+```
+
+Nothing is kept by the app: the picture comes from its host each time it is shown (the browser keeps it a while). An embed made with `bringPictures` carries its pictures inside.
+
 ## Slots
 
 A slot is a place of an app and the room a block has there. The app declares it once; `mount` keeps the block inside it, and `slotText` says the same numbers to whoever writes the block.
@@ -136,15 +159,15 @@ await mount(container, html, { slot: hover });
 slotText(hover); // "hover: the box under the mouse. It is at most 320 px wide, at most 360 px tall: …"
 ```
 
-## Writing a block with a model: the layout chat
+## Writing a block with a model: the chat
 
-**The reference for every app.** A new app that lets a person make html blocks (a layout for a place, a card, a dashboard) takes this as its model: the package for the frame and the shared parts, and block's `/make` for the way a layout is made. block is where it is built and tried first.
+**The reference for every app.** A new app that lets a person make html blocks (a layout for a place, a card, a dashboard) takes this as its model: the package for the frame and the shared parts, and block's `/make` for the live draft and the chat. block is where it is built and tried first; block itself keeps blocks only, and an app's layouts are that app's.
 
 block's web app has a chat that writes a block and draws it while it is written (`/make`). The parts that are not block's own are in the package, so tags, Potion and Relay build the same chat on their side without a copy of the rules or of the loop.
 
 **One layout, one place.** The person chooses the place before the chat starts (a slot: in tags, the panel of a place or the bubble on the map), and the draft keeps it. The model is told that place only; another place is another layout.
 
-**Data through a function, mocked while it is made.** A layout shows one object, which it asks for with `await <app>.self()`, never written into its source. While it is made, the app answers with the draft's `sample`: made-up data the model writes, and the person edits in the Data tab. Applied in an app, the app's own `self()` answers with the real object. The sample's shape is the layout's contract (`shapeOf`), and nothing in it is required: a value the app does not have is simply not drawn. In block itself, there is no real object: a published block keeps its sample, and `block.self()` answers it.
+**Data through a function, mocked while it is made.** A layout shows one object, which it asks for with `await <app>.self()`, never written into its source. While it is made, the app answers with the draft's `sample`: made-up data the model writes, and the person edits in the Data tab. Applied in an app, the app's own `self()` answers with the real object. The sample's shape is the layout's contract (`shapeOf`), and nothing in it is required: a value the app does not have is simply not drawn. In block itself, there is no real object: a saved block keeps its sample, and `block.self()` answers it.
 
 **In the package** (plain JS, no dependency):
 
@@ -152,21 +175,21 @@ block's web app has a chat that writes a block and draws it while it is written 
 
 - `instructions({ slots, host, calls, sample, extra })`: what a model is told to write a block for this app: the shared `RULES`, the app's slots (`slotText`), what its host lends (with a sentence per call), a sample of the data a block is drawn with, and the app's own rules.
 - `sourceProblems(source, { slot, names })`: what is seen wrong before a block is drawn or kept, in words a model can act on: a fence, the network, a script or a picture by address, an import, storage, eval, an unpinned library, and in a slot as tall as its content, `vh`, `height: 100%` on html or body, `position: fixed`.
-- `DRAFT_TOOLS` (`read_draft`, `write_draft` with the source, the name and the sample but never the place, `publish_draft` marked `write`), `asFunctions(tools)` for a model's function calls, and `publishing(draft, args)`: what a publish will do, in the sentence the person approves.
+- `DRAFT_TOOLS` (`read_draft`, `write_draft` with the source, the name and the sample but never the place, `save_draft` marked `write`), `asFunctions(tools)` for a model's function calls, and `saving(draft, args)`: what a publish will do, in the sentence the person approves.
 - `runTurn({ converse, tools, run, describe, system, messages, text, approve })`: one turn of a chat with tools. Reads run at once; a write stops the turn as `pending` until the next request approves it; a refusal is told to the model. The server keeps nothing: the conversation travels with each request.
 
 **What stays the app's:**
 
 - The model call (`converse`): the person's own OpenRouter key, the model they chose and never a swap, the cost. block's is `mcp/app/src/ai/` (as tags': `shared/server/ai-*.ts`), by the system's OpenRouter guide.
-- Where the draft is kept and what a publish saves. block keeps one draft per person (`drafts`, its `version` goes up at each write) and publishes it as a block; Potion keeps one per workspace (`layout_drafts`) and publishes a layout. An app with objects that use a layout says how many in `based_on.used_by`, and `publishing` says it to the person.
+- Where the draft is kept and what a save keeps. block keeps one draft per person (`drafts`, its `version` goes up at each write) and saves it as a block; Potion keeps one per workspace (`layout_drafts`) and publishes a layout. An app with objects that use a layout says how many in `based_on.used_by`, and `publishing` says it to the person.
 - Its host (`defineHost`), the sample a block is drawn with, its own tools (tags' `find_objects`, Potion's notes), its screens.
 
-**The loop.** Every writer writes the one draft: the chat at each `write_draft`, an agent through the MCP (`read_draft`, `write_draft`, `load_draft`, `publish_draft` with `confirm`), the person in the code pane. The open page asks for the draft's version each second (`GET /api/draft?since=12` answers 204 while it is still 12) and draws it again when it changed, so a block changes while the model is still working, whoever writes it.
+**The loop.** Every writer writes the one draft: the chat at each `write_draft`, an agent through the MCP (`read_draft`, `write_draft`, `load_draft`, `save_draft` with `confirm`), the person in the code pane. The open page asks for the draft's version each second (`GET /api/draft?since=12` answers 204 while it is still 12) and draws it again when it changed, so a block changes while the model is still working, whoever writes it.
 
 **An app plugging in:**
 
 ```js
-import { instructions, DRAFT_TOOLS, asFunctions, runTurn, sourceProblems, publishing } from "@ghostmind-dev/block";
+import { instructions, DRAFT_TOOLS, asFunctions, runTurn, sourceProblems, saving } from "@ghostmind-dev/block";
 
 const system = [appRole, instructions({ slots: [detail, hover], host: TAGS_HOST, calls: { self: "the object this layout shows" }, sample })].join("\n\n");
 const tools = [...DRAFT_TOOLS, ...appTools];
@@ -174,7 +197,7 @@ const turn = await runTurn({
   converse: ({ messages }) => ai.converse({ messages, tools: asFunctions(tools) }),   // the app's OpenRouter call
   tools,
   run: (name, args) => runAppTool(name, args),            // write_draft: save the draft, answer sourceProblems(source, { slot })
-  describe: (name, args) => ({ summary: publishing(draft, args) }),
+  describe: (name, args) => ({ summary: saving(draft, args) }),
   system, messages, text, approve,
 });
 ```
@@ -205,7 +228,7 @@ A dev routine refuses a cluster that has no shared Postgres (`k8s/dev-setup.sh`)
 
   | App | Web | iOS | Version it pins |
   |---|---|---|---|
-  | block | `ui/app/src/frame.tsx` (`mount`), `make.tsx` (layouts), `embed.tsx` | none yet | 0.4.0 |
+  | block | `ui/app/src/frame.tsx` (`mount`, `makePictures`), `make.tsx` (the chat), `embed.ts`; `mcp/app/src/api/routes.ts` (`/api/picture`) | none yet | 0.5.0 |
   | Potion | `ui/app/src/lib/potion-block.ts`, `components/HtmlBlockRenderer.tsx`, `MarkdownPreview.tsx` (the feed card) | `native/app/components/elements/HtmlBlock.tsx` | web 0.2.0, iOS 0.3.1 |
   | tags.city | `shared/pure/layout-frame.ts`, `city/app/src/components/layouts/LayoutFrame.tsx`, `app/map/hover-layout.ts` | `native/app/components/elements/LayoutView` | 0.3.1 |
   | Relay | `api/app/src/ui/frame.js`, `dashboards.js` (the package is served to the page from `/ui/block@<version>/`) | `native/app/utils/block.ts`, `app/dashboard/[id].tsx` | 0.3.1 |

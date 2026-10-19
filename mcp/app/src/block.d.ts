@@ -66,12 +66,14 @@ declare module "@ghostmind-dev/block" {
     type: string;
   }
   export const FIELD_TYPES: readonly string[];
+  export function placeholders(fields: { key: string; type: string }[]): Record<string, unknown>;
   export function checkRoom(room: unknown): Room;
   export function roomSlot(room: unknown, options?: { name?: string; what?: string }): Slot;
   export function checkFields(fields: unknown): Field[];
   export function fieldsText(fields: unknown): string;
   export function asFunctions(tools: readonly DraftTool[]): { type: "function"; function: { name: string; description: string; parameters: Record<string, unknown> } }[];
-  export function publishing(draft: { name?: string | null; based_on?: { id: string; name: string; used_by?: number } | null }, args?: { name?: string; as_new?: boolean }): string;
+  export function saving(draft: { kind?: string; name?: string | null; based_on?: { id: string; name: string; used_by?: number } | null }, args?: { name?: string; as_new?: boolean }): string;
+  export const publishing: typeof saving;
   export interface Pending {
     callId: string;
     tool: string;
@@ -91,4 +93,12 @@ declare module "@ghostmind-dev/block" {
     maxSteps?: number;
     maxText?: number;
   }): Promise<{ messages: M[]; reply: string | null; pending: Pending | null; model: string | null; cost: number }>;
+}
+
+declare module "@ghostmind-dev/block/server" {
+  export class PictureError extends Error {
+    status: number;
+  }
+  export function isPrivateAddress(address: string): boolean;
+  export function relayPicture(address: string, options?: { fetch?: typeof fetch; maxBytes?: number; timeout?: number }): Promise<{ type: string; bytes: Uint8Array }>;
 }

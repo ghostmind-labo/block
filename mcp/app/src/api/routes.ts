@@ -4,7 +4,8 @@ import { z } from "zod";
 import { currentUser, requireUser, userFromToken } from "../auth/google.ts";
 import { sourceProblem } from "../blocks/check.ts";
 import { DEFAULT_SLOT, SLOT_NAMES, SLOTS } from "../blocks/slots.ts";
-import { createBlock, deleteBlock, getBlock, getSharedBlock, listBlocks, updateBlock } from "../blocks/store.ts";
+import { relayPicture, PictureError } from "@ghostmind-dev/block/server";
+import { createBlock, deleteBlock, getBlock, getSharedBlock, listBlocks, sharedPicture, updateBlock } from "../blocks/store.ts";
 
 /** The API the web app uses. Same Google sign-in as the MCP. */
 export const api = Router();
@@ -33,6 +34,27 @@ api.get(
     if (own) return res.json({ ...own, mine: true });
     const shared = await getSharedBlock(id);
     return shared ? res.json({ ...shared, shared: true, mine: false }) : missing(res);
+  }),
+);
+
+// A picture a block shows by address, for a page whose browser was refused by the picture's host (no CORS). Signed
+// in: any picture. Anyone else: only one a shared block shows, so this is no open relay. Nothing is kept here; the
+// browser keeps it a day.
+api.get(
+  "/api/picture",
+  safely(async (req, res) => {
+    const address = String(req.query.url ?? "");
+    const token = /^Bearer (.+)$/i.exec(req.headers.authorization ?? "")?.[1];
+    const user = token ? await userFromToken(token) : null;
+    if (!user && !(address && (await sharedPicture(address)))) return res.status(403).json({ error: "forbidden", message: "Sign in to see this picture" });
+    try {
+      const { type, bytes } = await relayPicture(address);
+      res.set({ "content-type": type, "cache-control": "private, max-age=86400", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'" });
+      return res.send(Buffer.from(bytes));
+    } catch (error) {
+      if (error instanceof PictureError) return res.status(error.status).json({ error: "picture", message: error.message });
+      throw error;
+    }
   }),
 );
 

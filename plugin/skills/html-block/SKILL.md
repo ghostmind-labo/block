@@ -25,7 +25,8 @@ When the two disagree, the app's skill wins: it describes what that app runs tod
 
 ## The frame reaches nothing
 
-- **No network.** No `fetch`, no `<script src>`, no `<link>`, no remote image, font or video. A picture is inline svg, a canvas drawing, or a `data:` address.
+- **No network.** No `fetch`, no `<script src>`, no `<link>`, no remote font, video or css `url()`.
+- **A picture by address is written as it is:** `<img src="https://…">`. The app brings it into the block before it is shown (from @ghostmind-dev/block 0.5.0), so a link the person pastes shows. Only an `<img src>` written in the source is brought: an address a script makes at run time (`new Image()`, a css `url()`) is refused. Inline svg, a canvas or a `data:` address work too. Give the `<img>` a size or `max-width: 100%`, and an `alt`.
 - **No storage, no page.** No `localStorage`, no cookies, no access to the page around it, no `eval`.
 - **It cannot go anywhere.** A link does nothing by itself. The app decides what a link opens, and each app says which links it understands.
 
