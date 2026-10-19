@@ -118,8 +118,10 @@ function Gallery() {
       <main className="gallery">
         <header className="gallery-head">
           <h1>Blocks</h1>
-          <Link to="/make" search={{ new: "" } as never} className="button solid">
-            New
+          <Link to="/make" search={{ new: "" } as never} className="button add" aria-label="New block" title="New block">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
           </Link>
         </header>
         {error && <p className="error">{error.message}</p>}
