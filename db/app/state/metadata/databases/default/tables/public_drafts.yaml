@@ -2,15 +2,9 @@ table:
   name: drafts
   schema: public
 object_relationships:
-  - name: base
-    using:
-      foreign_key_constraint_on: based_on
   - name: block
     using:
       foreign_key_constraint_on: block_id
-  - name: layout
-    using:
-      foreign_key_constraint_on: layout_id
 insert_permissions:
   - role: user
     permission:
@@ -23,12 +17,8 @@ insert_permissions:
         - source
         - name
         - slot
-        - based_on
         - sample
         - room
-        - fields
-        - kind
-        - layout_id
         - block_id
 select_permissions:
   - role: user
@@ -44,12 +34,8 @@ update_permissions:
         - source
         - name
         - slot
-        - based_on
         - sample
         - room
-        - fields
-        - kind
-        - layout_id
         - block_id
       filter:
         user_id:

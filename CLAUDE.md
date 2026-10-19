@@ -2,7 +2,9 @@
 
 `@ghostmind-dev/block`: the sandboxed html block shared by the Ghostmind apps. Read `README.md` first for what it is and how it is used.
 
-**block is the reference** (owner, 2026-10-18): every new app that needs custom html blocks takes block as its model, the package for the frame and this app for how a person makes a layout (a room, data fields read through `<app>.self()` and mocked while it is made, the live draft and the chat, blocks made from a layout). Build it here first, then the apps follow. For how an app plugs in its real data (`self()` answered by the app, layouts saved and used in it), the example is an individual app, Potion first: the html block started there.
+**The package is the product** (owner, 2026-10-19): `@ghostmind-dev/block` is what the apps use; this web app is the bench where it is tried. In dev the app runs `lib/` as it is on disk (below), so a change to the package is seen live before it is published. The app keeps blocks only, no layouts: a gallery of blocks, and a chat (`/make`) that makes or changes one block, drawn again at each write. Monochrome and minimal: the only colour on a page is a block's own.
+
+**block is the reference** (owner, 2026-10-18) for every new app that needs custom html blocks: the package for the frame and the shared parts (rules, draft tools, the chat loop), this app for the live draft and the chat. How an app plugs in its own data and its own layouts (`<app>.self()` answered by the app) is that app's: the example is Potion, where the html block started.
 
 ## Map
 
@@ -17,7 +19,7 @@
 - `lib/app/src/webview.js`: a block in a native app's web view. The same document and the same `serve`, joined through a channel of text (`transport: "webview"`, `webviewTarget`, `fromWebview`)
 - `demo/app`: a page with no build and no dependency; it imports the package's source from `/block/`
 - `mcp/app/src/blocks`: this app's slots (`slots.ts`), the contract given to the model (`contract.ts`, from the package's `instructions`), the check that brings a block's libraries before it is saved (`check.ts`).
-- `mcp/app/src/drafts` and `ai`: the live draft (`drafts` table, one per person) and the layout chat on the person's own OpenRouter account (`ai_connection`, the key encrypted with `AI_KEY_ENCRYPTION_KEY`). `ui/app/src/make.tsx` is the page (`/make`). `mcp/app/src/auth` and `db/hasura.ts` are format's, unchanged
+- `mcp/app/src/drafts` and `ai`: the live draft (`drafts` table, one per person, always a block) and the chat on the person's own OpenRouter account (`ai_connection`, the key encrypted with `AI_KEY_ENCRYPTION_KEY`). `ui/app/src/make.tsx` is the page (`/make`). `mcp/app/src/auth` and `db/hasura.ts` are format's, unchanged
 - `ui/app/src/frame.tsx`: the one place the web app calls `mount`. `stage.tsx` draws the place around each slot
 - `tunnel`: cloudflared, the one public host in dev (`block.ghostmind.app`) and in prod (`block.ghostmind.dev`). It sends `/mcp`, `/oauth`, `/.well-known` and `/api` to the mcp and the rest to the web app
 - `.mcp.json`: the dev MCP (`block-dev`, block.ghostmind.app) for a Claude session in this repo. `plugin/.mcp.json` is the prod one
@@ -41,6 +43,7 @@
 
 - **An effect written as an expression returns what the expression returns.** `useEffect(() => el.scrollIntoView(...))` hands React a promise in current Chrome (scroll methods return one), and React fails with "destroy is not a function": the page goes blank. Write effects with braces.
 - **The dev tunnel caches the package in the browser.** Cloudflare adds `cache-control: max-age=14400` to what block.ghostmind.app serves, so after a change to `lib/` the page kept the old package (`does not provide an export named …`, a blank page) for hours. The dev server sends `/@fs/…/lib/app/src` files with `no-store` (`ui/app/vite.config.ts`).
+- **Deleting a file makes skaffold rebuild, and the new pod can miss the edits made during the build.** It crashes on an import of the old files (`Cannot find module …`), never becomes ready, and skaffold waits for it without syncing: a deadlock. Copy the current files into the new pod (`kubectl cp`, dev only) or restart the routine in its pane.
 - **A slot made in a render** (`roomSlot(room)` inline) remounts the frame on every render, and the loop closed Chrome twice. One slot per room: `ui/app/src/room.ts`.
 
 ## Check

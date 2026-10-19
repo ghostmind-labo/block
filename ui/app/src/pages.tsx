@@ -2,7 +2,7 @@ import { defineSlot, type Slot } from "@ghostmind-dev/block";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { deleteBlock, getBlock, getSlots, listBlocks, updateBlock, type Block, type BlockSummary, type SlotInfo } from "./api";
+import { deleteBlock, getBlock, getDraft, getSlots, listBlocks, updateBlock, type Block, type BlockSummary, type SlotInfo } from "./api";
 import { finishSignIn, signedIn, signIn, signOut } from "./auth";
 import { EXAMPLES } from "./examples";
 import { BlockFrame, NO_REPORT, type Report, type Scheme } from "./frame";
@@ -26,8 +26,6 @@ export function Shell({ children, actions }: { children: ReactNode; actions?: Re
           <i aria-hidden /> block
         </Link>
         <nav>
-          {signedIn() && <Link to="/">Gallery</Link>}
-          {signedIn() && <Link to="/make">Studio</Link>}
           {signedIn() ? <button className="quiet" onClick={signOut}>Sign out</button> : <button className="quiet" onClick={() => void signIn()}>Sign in</button>}
         </nav>
         {actions}
@@ -112,17 +110,34 @@ function Welcome() {
 
 function Gallery() {
   const { data: blocks, error } = useQuery({ queryKey: ["blocks"], queryFn: listBlocks });
+  // a block being written and never saved is shown first, to go back to it
+  const { data: draft } = useQuery({ queryKey: ["draft"], queryFn: () => getDraft() });
+  const unsaved = draft && draft.source.trim() && !draft.based_on ? draft : null;
   return (
     <Shell>
       <main className="gallery">
-        <h1>Your blocks</h1>
+        <header className="gallery-head">
+          <h1>Blocks</h1>
+          <Link to="/make" search={{ new: "" } as never} className="button solid">
+            New
+          </Link>
+        </header>
         {error && <p className="error">{error.message}</p>}
-        {blocks?.length === 0 && (
-          <p className="empty">
-            Nothing yet. Make one in the <Link to="/make">studio</Link>.
-          </p>
-        )}
-        <div className="grid">{blocks?.map((block) => <Tile key={block.id} block={block} />)}</div>
+        {blocks?.length === 0 && !unsaved && <p className="empty">Nothing yet. A block is a piece of html: describe one to the chat, and watch it drawn.</p>}
+        <div className="grid">
+          {unsaved && (
+            <Link to="/make" className="tile tile--draft">
+              <div className="thumb thumb--draft">
+                <span>Not saved</span>
+              </div>
+              <div className="tile-text">
+                <strong>{unsaved.name ?? "Untitled"}</strong>
+                <span>draft</span>
+              </div>
+            </Link>
+          )}
+          {blocks?.map((block) => <Tile key={block.id} block={block} />)}
+        </div>
       </main>
     </Shell>
   );
@@ -168,7 +183,7 @@ function Tile({ block }: { block: BlockSummary }) {
       <div className="tile-text">
         <strong>{block.name}</strong>
         <span>
-          {block.layout ? `from ${block.layout.name}` : "its own html"} · {when(block.updated_at)}
+          {when(block.updated_at)}
           {block.shared ? " · shared" : ""}
         </span>
       </div>
@@ -214,7 +229,7 @@ export function BlockPage() {
   return <OwnBlock block={block} slots={slots.slots} onRemoved={() => void navigate({ to: "/" })} />;
 }
 
-/** One of the person's blocks, in the gallery: drawn as it is, with Share, Embed (html that needs nothing), Edit (in the studio) and Delete. */
+/** One of the person's blocks, in the gallery: drawn as it is, with Share, Embed (html that needs nothing), Edit (in the chat) and Delete. */
 function OwnBlock({ block, slots, onRemoved }: { block: Block; slots: SlotInfo[]; onRemoved: () => void }) {
   const client = useQueryClient();
   const navigate = useNavigate();
@@ -243,7 +258,6 @@ function OwnBlock({ block, slots, onRemoved }: { block: Block; slots: SlotInfo[]
           <div className="title">
             <h1>{block.name}</h1>
             <p className="meta">
-              {block.layout ? `from the layout “${block.layout.name}” · ` : ""}
               {roomText(roomOf(block, slots))} · changed {when(block.updated_at)}
             </p>
           </div>

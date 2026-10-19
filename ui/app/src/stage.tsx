@@ -15,7 +15,7 @@ const Lines = ({ count }: { count: number }) => (
  * text, a grid for a map), so that the block is seen at the size and in the company it will have in an app.
  */
 export function Stage({ html, slot, scheme, title, sample, onReport }: { html: string; slot: Slot; scheme: Scheme; title: string; sample?: unknown; onReport?: (report: Report) => void }) {
-  // A layout's own room (a playground, not an app's place) is drawn alone, with nothing around it to try.
+  // A block's own room (the slot `roomSlot` makes, named "layout" by the package) is drawn alone, with nothing around it.
   const own = slot.name === "layout";
   const frame = <BlockFrame html={html} slot={slot} scheme={scheme} title={title} sample={sample} onReport={onReport} bare={own} />;
   return (
@@ -86,7 +86,7 @@ function Hover({ children }: { children: ReactNode }) {
   );
 }
 
-/** A layout's own room: the frame on a plain ground, with the size it is drawn at under it. */
+/** A block's own room: the frame on a plain ground, with the size it is drawn at under it. */
 function Room({ slot, children }: { slot: Slot; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
@@ -99,7 +99,7 @@ function Room({ slot, children }: { slot: Slot; children: ReactNode }) {
     return () => seen.disconnect();
   }, []);
   return (
-    // The ground fits the layout: as wide as its room allows, never a wide empty canvas around a small layout.
+    // The ground fits the block: as wide as its room allows, never a wide empty canvas around a small block.
     <div className={`place place--room${slot.width?.max ? "" : " place--room-full"}`}>
       <div className="room-frame" ref={box} style={{ width: slot.width?.max ? `${slot.width.max}px` : "100%", maxWidth: "100%" }}>
         {children}

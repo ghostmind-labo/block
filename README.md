@@ -136,9 +136,9 @@ await mount(container, html, { slot: hover });
 slotText(hover); // "hover: the box under the mouse. It is at most 320 px wide, at most 360 px tall: …"
 ```
 
-## Writing a block with a model: the layout chat
+## Writing a block with a model: the chat
 
-**The reference for every app.** A new app that lets a person make html blocks (a layout for a place, a card, a dashboard) takes this as its model: the package for the frame and the shared parts, and block's `/make` for the way a layout is made. block is where it is built and tried first.
+**The reference for every app.** A new app that lets a person make html blocks (a layout for a place, a card, a dashboard) takes this as its model: the package for the frame and the shared parts, and block's `/make` for the live draft and the chat. block is where it is built and tried first; block itself keeps blocks only, and an app's layouts are that app's.
 
 block's web app has a chat that writes a block and draws it while it is written (`/make`). The parts that are not block's own are in the package, so tags, Potion and Relay build the same chat on their side without a copy of the rules or of the loop.
 
@@ -158,7 +158,7 @@ block's web app has a chat that writes a block and draws it while it is written 
 **What stays the app's:**
 
 - The model call (`converse`): the person's own OpenRouter key, the model they chose and never a swap, the cost. block's is `mcp/app/src/ai/` (as tags': `shared/server/ai-*.ts`), by the system's OpenRouter guide.
-- Where the draft is kept and what a save keeps. block keeps one draft per person (`drafts`, its `version` goes up at each write) and saves it as a layout or a block; Potion keeps one per workspace (`layout_drafts`) and publishes a layout. An app with objects that use a layout says how many in `based_on.used_by`, and `publishing` says it to the person.
+- Where the draft is kept and what a save keeps. block keeps one draft per person (`drafts`, its `version` goes up at each write) and saves it as a block; Potion keeps one per workspace (`layout_drafts`) and publishes a layout. An app with objects that use a layout says how many in `based_on.used_by`, and `publishing` says it to the person.
 - Its host (`defineHost`), the sample a block is drawn with, its own tools (tags' `find_objects`, Potion's notes), its screens.
 
 **The loop.** Every writer writes the one draft: the chat at each `write_draft`, an agent through the MCP (`read_draft`, `write_draft`, `load_draft`, `save_draft` with `confirm`), the person in the code pane. The open page asks for the draft's version each second (`GET /api/draft?since=12` answers 204 while it is still 12) and draws it again when it changed, so a block changes while the model is still working, whoever writes it.
@@ -205,7 +205,7 @@ A dev routine refuses a cluster that has no shared Postgres (`k8s/dev-setup.sh`)
 
   | App | Web | iOS | Version it pins |
   |---|---|---|---|
-  | block | `ui/app/src/frame.tsx` (`mount`), `make.tsx` (layouts), `embed.tsx` | none yet | 0.4.0 |
+  | block | `ui/app/src/frame.tsx` (`mount`), `make.tsx` (the chat), `embed.tsx` | none yet | 0.4.0 |
   | Potion | `ui/app/src/lib/potion-block.ts`, `components/HtmlBlockRenderer.tsx`, `MarkdownPreview.tsx` (the feed card) | `native/app/components/elements/HtmlBlock.tsx` | web 0.2.0, iOS 0.3.1 |
   | tags.city | `shared/pure/layout-frame.ts`, `city/app/src/components/layouts/LayoutFrame.tsx`, `app/map/hover-layout.ts` | `native/app/components/elements/LayoutView` | 0.3.1 |
   | Relay | `api/app/src/ui/frame.js`, `dashboards.js` (the package is served to the page from `/ui/block@<version>/`) | `native/app/utils/block.ts`, `app/dashboard/[id].tsx` | 0.3.1 |
