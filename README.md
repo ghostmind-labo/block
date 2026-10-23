@@ -75,6 +75,7 @@ await mount(container, html, {
 - **A function as an argument**, alone or held by an options object (`{ onError }`), reaches the app's function as a function: calling it sends its value to the block.
 - **Bytes** (an `ArrayBuffer`, a typed array) cross as they are, as an argument or as an answer.
 - The functions run in the app, with the app's network and session. The frame holds only their names.
+- **Args**: one block, many copies, each with its own values. `mount(container, html, { host, args: { caption: "From the car" } })` (or `documentOf(source, { host, args })`, in a web view too) and the block reads `potion.args()`: a copy of them, at once, not a promise, and `{}` when the app gave none, so a block may always call it. A flat object of strings, numbers and booleans; they are written in the document as data. `args` is therefore not a name a host may give a call.
 
 ## In a native app
 
@@ -158,6 +159,8 @@ const hover = defineSlot({ name: "hover", what: "the box under the mouse", width
 await mount(container, html, { slot: hover });
 slotText(hover); // "hover: the box under the mouse. It is at most 320 px wide, at most 360 px tall: …"
 ```
+
+A block that shows nothing (a card that hid itself) reports a height of 0 and its frame takes no room, unless its slot has a `height.min`. A frame on a page that is not showing has no size and reports nothing.
 
 ## Writing a block with a model: the chat
 
