@@ -1,4 +1,0 @@
-table:
-  name: ai_connection
-  schema: public
-# No permission for any role: only the mcp, as admin, reads or writes it. The key never reaches a client.

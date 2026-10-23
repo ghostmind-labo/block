@@ -1,2 +1,0 @@
-ALTER TABLE blocks DROP COLUMN room, DROP COLUMN fields;
-ALTER TABLE drafts DROP COLUMN room, DROP COLUMN fields;

@@ -3,20 +3,17 @@
   "name": "block",
   "version": "0.1.0",
   "type": "project",
-  "description": "The sandboxed html block shared by the Ghostmind apps, as an npm package, and the app around it: a place to make a block with Claude, look at it in the room it will have, and share it.",
+  "description": "@ghostmind-dev/block, the sandboxed html block shared by the Ghostmind apps, as an open-source npm package, and a demo page to try it locally.",
   "tags": [
     "library",
     "html",
-    "sandbox",
-    "mcp"
+    "sandbox"
   ],
   "routines": {
     "herdr_init": "run herdr init block --all",
     "herdr_attach": "run herdr attach block",
     "herdr_terminate": "run herdr terminate block",
-    "claude": "claude",
-    "remove": "bash k8s/remove.sh",
-    "prod_init": "bash k8s/prod-init.sh"
+    "claude": "claude"
   },
   "herdr": {
     "workspaces": [
@@ -44,16 +41,16 @@
   },
   "links": [
     {
-      "label": "Web (dev)",
-      "url": "https://block.ghostmind.app"
+      "label": "Demo (local)",
+      "url": "http://localhost:5105"
     },
     {
-      "label": "Web (prod)",
-      "url": "https://block.ghostmind.dev"
+      "label": "npm",
+      "url": "https://www.npmjs.com/package/@ghostmind-dev/block"
     },
     {
-      "label": "DB console",
-      "url": "http://localhost:9775"
+      "label": "GitHub",
+      "url": "https://github.com/ghostmind-labo/block"
     }
   ]
 }

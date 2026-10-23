@@ -1,2 +1,0 @@
-ALTER TABLE blocks DROP COLUMN sample;
-ALTER TABLE drafts DROP COLUMN sample;

@@ -4,15 +4,17 @@ The sandboxed html block that Potion, Relay and Tags each built for themselves, 
 
 A block is html written by a person or a model. It is shown in a frame that reaches nothing: no network, no storage, not the page around it. Whatever it needs from outside, the app lends it by name.
 
+It is open source (MIT) and published on npm as [`@ghostmind-dev/block`](https://www.npmjs.com/package/@ghostmind-dev/block): plain ESM JavaScript, no dependency, no build. The same code runs in a browser, in Node and in a native app's web view.
+
 | Folder | What it is |
 |---|---|
-| `lib/` | `@ghostmind-dev/block`, the npm package. Plain ESM JavaScript, no dependency |
-| `ui/` | The web app: a person's blocks, each shown in the slot it was written for, and a page to try one without keeping it (https://block.ghostmind.app in dev) |
-| `mcp/` | The remote MCP (Google sign-in) that makes and changes blocks, and the API the web app reads |
-| `db/` | Hasura on the shared Postgres: one row per block |
-| `tunnel/` | cloudflared: `block.ghostmind.app` (dev) and `block.ghostmind.dev` (prod), by path to the mcp and the web app |
-| `plugin/` | The Claude plugin: the prod MCP and the skill that teaches writing a block |
-| `demo/` | A page with no build that mounts one block and lends it its scroll (http://localhost:5105) |
+| `lib/` | `@ghostmind-dev/block`, the npm package, and its tests |
+| `demo/` | A page with no build that mounts one block and lends it its scroll, reading the package's source as it is on disk (http://localhost:5105) |
+| `plugin/` | A Claude plugin with the `html-block` skill: the rules every block follows, in every app |
+
+```sh
+npm install @ghostmind-dev/block
+```
 
 ## Use
 
@@ -75,6 +77,7 @@ await mount(container, html, {
 - **A function as an argument**, alone or held by an options object (`{ onError }`), reaches the app's function as a function: calling it sends its value to the block.
 - **Bytes** (an `ArrayBuffer`, a typed array) cross as they are, as an argument or as an answer.
 - The functions run in the app, with the app's network and session. The frame holds only their names.
+- **Args**: one block, many copies, each with its own values. `mount(container, html, { host, args: { caption: "From the car" } })` (or `documentOf(source, { host, args })`, in a web view too) and the block reads `potion.args()`: a copy of them, at once, not a promise, and `{}` when the app gave none, so a block may always call it. A flat object of strings, numbers and booleans; they are written in the document as data. `args` is therefore not a name a host may give a call.
 
 ## In a native app
 
@@ -159,15 +162,15 @@ await mount(container, html, { slot: hover });
 slotText(hover); // "hover: the box under the mouse. It is at most 320 px wide, at most 360 px tall: …"
 ```
 
+A block that shows nothing (a card that hid itself) reports a height of 0 and its frame takes no room, unless its slot has a `height.min`. A frame on a page that is not showing has no size and reports nothing.
+
 ## Writing a block with a model: the chat
 
-**The reference for every app.** A new app that lets a person make html blocks (a layout for a place, a card, a dashboard) takes this as its model: the package for the frame and the shared parts, and block's `/make` for the live draft and the chat. block is where it is built and tried first; block itself keeps blocks only, and an app's layouts are that app's.
-
-block's web app has a chat that writes a block and draws it while it is written (`/make`). The parts that are not block's own are in the package, so tags, Potion and Relay build the same chat on their side without a copy of the rules or of the loop.
+An app that lets a person make html blocks with a model (a layout for a place, a card, a dashboard) builds its chat from the parts here, so tags, Potion and Relay share the rules and the loop without a copy of them.
 
 **One layout, one place.** The person chooses the place before the chat starts (a slot: in tags, the panel of a place or the bubble on the map), and the draft keeps it. The model is told that place only; another place is another layout.
 
-**Data through a function, mocked while it is made.** A layout shows one object, which it asks for with `await <app>.self()`, never written into its source. While it is made, the app answers with the draft's `sample`: made-up data the model writes, and the person edits in the Data tab. Applied in an app, the app's own `self()` answers with the real object. The sample's shape is the layout's contract (`shapeOf`), and nothing in it is required: a value the app does not have is simply not drawn. In block itself, there is no real object: a saved block keeps its sample, and `block.self()` answers it.
+**Data through a function, mocked while it is made.** A layout shows one object, which it asks for with `await <app>.self()`, never written into its source. While it is made, the app answers with the draft's `sample`: made-up data the model writes, and the person edits in the Data tab. Applied in an app, the app's own `self()` answers with the real object. The sample's shape is the layout's contract (`shapeOf`), and nothing in it is required: a value the app does not have is simply not drawn.
 
 **In the package** (plain JS, no dependency):
 
@@ -180,11 +183,11 @@ block's web app has a chat that writes a block and draws it while it is written 
 
 **What stays the app's:**
 
-- The model call (`converse`): the person's own OpenRouter key, the model they chose and never a swap, the cost. block's is `mcp/app/src/ai/` (as tags': `shared/server/ai-*.ts`), by the system's OpenRouter guide.
-- Where the draft is kept and what a save keeps. block keeps one draft per person (`drafts`, its `version` goes up at each write) and saves it as a block; Potion keeps one per workspace (`layout_drafts`) and publishes a layout. An app with objects that use a layout says how many in `based_on.used_by`, and `publishing` says it to the person.
+- The model call (`converse`): the person's own key, the model they chose and never a swap, the cost.
+- Where the draft is kept and what a save keeps (Potion keeps one draft per workspace and publishes a layout). An app with objects that use a layout says how many in `based_on.used_by`, and `publishing` says it to the person.
 - Its host (`defineHost`), the sample a block is drawn with, its own tools (tags' `find_objects`, Potion's notes), its screens.
 
-**The loop.** Every writer writes the one draft: the chat at each `write_draft`, an agent through the MCP (`read_draft`, `write_draft`, `load_draft`, `save_draft` with `confirm`), the person in the code pane. The open page asks for the draft's version each second (`GET /api/draft?since=12` answers 204 while it is still 12) and draws it again when it changed, so a block changes while the model is still working, whoever writes it.
+**The loop.** Every writer writes the one draft: the chat at each `write_draft`, an agent through the app's MCP, the person in a code pane. The open page draws the draft again whenever its version changes, so a block changes while the model is still working, whoever writes it.
 
 **An app plugging in:**
 
@@ -202,45 +205,25 @@ const turn = await runTurn({
 });
 ```
 
-## Run
-
-Dev runs on the current kube and Docker contexts, as they are: which cluster is current is your choice, and nothing here switches or names one. It must be a cluster that runs the shared Postgres and the users service; `k8s/dev-setup.sh` asks it and stops otherwise.
+## Run it locally
 
 ```sh
-run routine test      # in lib/: the package's tests
-run routine start     # in db/: Hasura; then `run routine migrate`
-run routine dev       # in mcp/, ui/ and tunnel/: https://block.ghostmind.app is the one host (the tunnel sends /mcp, /oauth and /api to the mcp)
-run routine dev       # in demo/: the page on http://localhost:5105
+cd lib/app && npm test      # the package's tests (node:test, no browser: the frame's scripts run in node:vm)
+cd demo/app && PORT=5105 node server.js   # the demo page on http://localhost:5105
 ```
 
-The web app is also on http://localhost:5106, and sign-in works from there too (Google sends people back through the tunnel, so the tunnel has to be up).
+With the `run` CLI, `run routine test` in `lib/` and `run routine dev` in `demo/` do the same through varlock. The demo serves `lib/app/src` under `/block/`, so a change to the package shows on a reload. A change to the document or to `mount.js` is checked on that page in a browser before it is published.
 
-Claude Code reaches the dev MCP at `https://block.ghostmind.app/mcp`: a session opened in this repo has it as `block-dev` (`.mcp.json`). The plugin's MCP is the prod one.
+## Publish
 
-A dev routine refuses a cluster that has no shared Postgres (`k8s/dev-setup.sh`), so nothing is deployed to a laptop's own cluster by mistake.
+Raise `version` in `lib/app/package.json`, run the tests, then `npm publish --access public` in `lib/app`. Each app that uses the package raises its own pinned version.
 
-## State
+## Used by
 
-- The package brings any npm library, keeps a block in a slot and reports what a block threw. Its tests pass, and the web app shows three.js, a chart and each slot in a browser.
-- `db`, `mcp` and `ui` run on the dev cluster. The product's Google sign-in client (project `ghostmind-core`, client `block`) is in Vault at `ghostmind/project/block/auth`.
-- Prod is `https://block.ghostmind.dev`, deployed by a merge to main (`.github/workflows/deploy.yaml`): only the apps a merge changed, or everything on a run started by hand. `run routine prod_init` set up the namespace, the Vault roles and the tunnel; run it again when an app or a prod secret path is added.
-- Potion, tags.city and Relay all show their blocks through this package, on the web and in their iOS apps (2026-10-13). Where each app's own side is:
-
-  | App | Web | iOS | Version it pins |
-  |---|---|---|---|
-  | block | `ui/app/src/frame.tsx` (`mount`, `makePictures`), `make.tsx` (the chat), `embed.ts`; `mcp/app/src/api/routes.ts` (`/api/picture`) | none yet | 0.5.0 |
-  | Potion | `ui/app/src/lib/potion-block.ts`, `components/HtmlBlockRenderer.tsx`, `MarkdownPreview.tsx` (the feed card) | `native/app/components/elements/HtmlBlock.tsx` | web 0.2.0, iOS 0.3.1 |
-  | tags.city | `shared/pure/layout-frame.ts`, `city/app/src/components/layouts/LayoutFrame.tsx`, `app/map/hover-layout.ts` | `native/app/components/elements/LayoutView` | 0.3.1 |
-  | Relay | `api/app/src/ui/frame.js`, `dashboards.js` (the package is served to the page from `/ui/block@<version>/`) | `native/app/utils/block.ts`, `app/dashboard/[id].tsx` | 0.3.1 |
-
-- Potion and Relay still bring libraries from their own catalogue and vendor route, not from `makeLoader`; tags.city uses `makeLoader`.
+Potion, tags.city and Relay show their blocks through this package, on the web and in their iOS apps.
 
 ## Next
 
-- An iOS app for block itself.
-- tags.city: the contract its MCP and its in-app AI give for a layout (`shared/pure/layout.ts`) does not say that a layout may name libraries (`tags:use`), and there is no tool that lists them.
-- Pictures and video from outside a block: an app-owned list of media hosts in the policy, and web pictures brought by the app (tags.city already does the second with `tags.image`).
-- One catalogue: Potion and Relay reading this package's loader and catalogue in place of their own.
-- A search in `list_libraries` (the npm registry), so a model does not have to guess a package's name.
-- A React component and a React Native one around `mount` and `serve`: the three apps each wrote the same few lines.
-- Raise the version and publish (`npm publish --access public` in `lib/app`) when `lib/` changes, then raise it in `ui`, `mcp` and each app that uses it.
+- One catalogue: Potion and Relay still bring libraries from their own copy of it.
+- A React component and a React Native one around `mount` and `serve`: each app wrote the same few lines.
+- A search of the npm registry, so a model does not have to guess a package's name.

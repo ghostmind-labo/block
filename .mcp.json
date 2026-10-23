@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "block-dev": {
-      "type": "http",
-      "url": "https://block.ghostmind.app/mcp"
-    }
-  }
-}

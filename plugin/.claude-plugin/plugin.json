@@ -1,5 +1,5 @@
 {
   "name": "block",
-  "description": "Make html blocks with Claude: a chart, a small page, a widget, a drawing, a game. Each is one piece of html shown in a sandboxed frame, at an address that can be shared.",
-  "version": "0.4.0"
+  "description": "The rules for writing an html block: the sandboxed frame of @ghostmind-dev/block that Potion, tags.city and Relay show their charts, cards and dashboards in.",
+  "version": "0.6.0"
 }

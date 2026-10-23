@@ -1,9 +1,12 @@
 {
   "name": "@ghostmind-dev/block",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "The sandboxed html block: the document it runs in, the libraries it may name, and the functions its host lends it.",
   "type": "module",
   "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/ghostmind-labo/block.git", "directory": "lib/app" },
+  "homepage": "https://github.com/ghostmind-labo/block#readme",
+  "bugs": "https://github.com/ghostmind-labo/block/issues",
   "exports": {
     ".": "./src/index.js",
     "./web": "./src/mount.js",
