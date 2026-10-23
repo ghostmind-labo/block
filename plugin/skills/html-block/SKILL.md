@@ -45,6 +45,7 @@ A block talks to its app through one object with the app's name: `potion`, `tags
 - Guard for its absence (`if (!window.potion)`) and show something static: a block may be shown where nothing is lent.
 - A function that is not in the app's skill does not exist. Do not guess names.
 - A call can fail or be refused; show the reason (`error.message`), never an empty box.
+- **Args.** Where an app draws one block many times, each copy with its own values (a caption, a record), the block reads them with `potion.args()`: a plain object of strings, numbers and booleans, answered at once (not a promise), `{}` when the app gave none. Give each one a default: `const { caption = "" } = potion.args();`.
 
 ## Libraries
 
@@ -67,6 +68,7 @@ A block is written for the place it is shown in, and the app's skill says how mu
 - **As tall as its content**, in most places. `100vh`, `height: 100%` and `position: fixed; inset: 0` have nothing to refer to there: they take the frame's height, which is the block's own, and the frame stays a sliver. A canvas, a chart or a 3D scene needs a parent with a height of its own (`aspect-ratio: 16 / 9`, or pixels), with its overlays `position: absolute` inside it. Write it like a page only where the app's place fills the frame.
 - **The room arrives late and changes.** A block starts before its frame has its real size, and the size changes after (a panel dragged, a phone turned, the block expanded to the screen). Size anything a script measures from its parent, inside a `ResizeObserver` on that parent. Never once at the start, never from `window`.
 - **Lay out with what flows**: `%`, flex, grid, `clamp()`. It must hold at the narrowest and the widest the place allows.
+- **Nothing shown, no room.** A block that hides everything it drew (`display: none`, a card whose record is gone) takes no height at all, unless the place keeps some. Hide the block's content to make it disappear, rather than leaving an empty box.
 - **Expanded**, where the app offers it, the block is told on `<html>` (`data-block-expanded`, and under the app's name: `data-potion-expanded`). Only there does `vh` mean the screen.
 
 ## The ground
