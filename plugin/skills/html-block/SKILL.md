@@ -1,16 +1,16 @@
 ---
 name: html-block
 description: >-
-  The rules every html block follows in every Ghostmind app (Potion, tags.city, Relay, block): the sandbox it
+  The rules every html block follows in every Ghostmind app (Potion, tags.city, Relay): the sandbox it
   runs in, how a library reaches it, how it is sized, the ground it is drawn on, and what it may ask of the
   app. Use it whenever you write or fix a ```html block, a layout, a dashboard or a card in one of those apps,
-  together with that app's own skill (potion-blocks, tags, relay-dashboards, block), which says what only that
+  together with that app's own skill (potion-blocks, tags, relay-dashboards), which says what only that
   app has: its functions, its libraries, its places.
 ---
 
 # An html block
 
-An html block is one piece of html (markup, a `<style>`, a `<script>`) that an app shows in a sandboxed frame. The same thing is a chart in a Potion note, a layout beside a map in tags.city, a dashboard in Relay and a block in the block app. They share one frame, `@ghostmind-dev/block`, and so they share these rules.
+An html block is one piece of html (markup, a `<style>`, a `<script>`) that an app shows in a sandboxed frame. The same thing is a chart in a Potion note, a layout beside a map in tags.city and a dashboard in Relay. They share one frame, `@ghostmind-dev/block`, and so they share these rules.
 
 This skill is the common part. **Each app has its own skill for what is only its own**; read both:
 
@@ -19,7 +19,6 @@ This skill is the common part. **Each app has its own skill for what is only its
 | Potion | `potion-blocks` | `window.potion` (notes, records, writes), `potion:use`, the feed section, layouts |
 | tags.city | `tags` | `tags.self()`, placements (detail, hover), layouts and presets |
 | Relay | `relay-dashboards` | `window.relay` (things, actions), dashboards and covers |
-| block | `block` | the block app's MCP and its slots |
 
 When the two disagree, the app's skill wins: it describes what that app runs today.
 
