@@ -1,5 +1,5 @@
 {
   "name": "block",
   "description": "The rules for writing an html block: the sandboxed frame of @ghostmind-dev/block that Potion, tags.city and Relay show their charts, cards and dashboards in.",
-  "version": "0.6.0"
+  "version": "0.6.1"
 }
