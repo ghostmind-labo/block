@@ -68,6 +68,7 @@ A block is written for the place it is shown in, and the app's skill says how mu
 - **The room arrives late and changes.** A block starts before its frame has its real size, and the size changes after (a panel dragged, a phone turned, the block expanded to the screen). Size anything a script measures from its parent, inside a `ResizeObserver` on that parent. Never once at the start, never from `window`.
 - **Lay out with what flows**: `%`, flex, grid, `clamp()`. It must hold at the narrowest and the widest the place allows.
 - **Nothing shown, no room.** A block that hides everything it drew (`display: none`, a card whose record is gone) takes no height at all, unless the place keeps some. Hide the block's content to make it disappear, rather than leaving an empty box.
+- **A card drawn from values starts hidden and shows itself last.** Where a block is one copy of many (a card from its args or a record), put `hidden` on its root and remove it as the script's last line, once every value is set. Missing values, a thrown error or a script that does not parse then leave nothing, never a half-filled or empty card, and the app collapses it. `hidden` loses to any `display` the block's own CSS gives that element (`.card { display: flex }` shows a "hidden" card): add `.card[hidden] { display: none }`.
 - **Expanded**, where the app offers it, the block is told on `<html>` (`data-block-expanded`, and under the app's name: `data-potion-expanded`). Only there does `vh` mean the screen.
 
 ## The ground
