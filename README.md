@@ -224,6 +224,6 @@ Potion, tags.city and Relay show their blocks through this package, on the web a
 
 ## Next
 
-- One catalogue: Potion and Relay still bring libraries from their own copy of it.
+- One catalogue: Potion and Relay still keep their own copy of it. Potion no longer refuses a name (2026-10-24): what its copy does not hold it brings through `makeLoader`, kept in its bucket, with `as` and file paths. Relay still offers only its copy.
 - A React component and a React Native one around `mount` and `serve`: each app wrote the same few lines.
 - A search of the npm registry, so a model does not have to guess a package's name.
