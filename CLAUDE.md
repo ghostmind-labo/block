@@ -39,4 +39,4 @@
 
 ## Publish
 
-Raise `version` in `lib/app/package.json`, run the tests, `npm publish --access public` in `lib/app`, and tell the apps' sessions which version to raise to.
+Raise `version` in `lib/app/package.json`, then `run routine publish` in `lib/` (`scripts/publish.sh`): it refuses a version already on npm, runs the tests, and publishes with the npm token read from Vault through varlock (`ghostmind/global/npm#NPM_TOKEN`, a granular token with "bypass 2FA": no code is asked). An `NPM_TOKEN` already in the shell is older than Vault's and is unset first. Then tell the apps' sessions which version to raise to.
