@@ -162,6 +162,8 @@ await mount(container, html, { slot: hover });
 slotText(hover); // "hover: the box under the mouse. It is at most 320 px wide, at most 360 px tall: …"
 ```
 
+A block has no height limit but its slot's: with no slot, or a slot with no `height.max`, the frame is as tall as the content, however long. Past a slot's `height.max`, an interactive block scrolls inside itself and one that is only looked at is cut off. A height that climbs on its own (a chart sized to its box, a section of `100vh`: 30 rises in a row over more than 1.5 s with no node, text, picture, font or input in between) is held where the climb began, and the block scrolls inside itself until something new arrives.
+
 A block that shows nothing (a card that hid itself) reports a height of 0 and its frame takes no room, unless its slot has a `height.min`. A frame on a page that is not showing has no size and reports nothing.
 
 ## Writing a block with a model: the chat
