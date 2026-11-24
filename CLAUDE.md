@@ -16,6 +16,8 @@
 - `lib/app/src/pictures.js` and `relay.js`: the pictures a block shows by address, brought in as `data:` by the page, and relayed by an app's server for a host that refuses other sites
 - `lib/app/src/mount.js`: a block on a web page. The only file that touches a page
 - `lib/app/src/webview.js`: a block in a native app's web view. The same document and the same `serve`, joined through a channel of text
+- `lib/app/src/*.d.ts`: the types, written by hand next to each entry point. A change to an export changes them; a test fails on an export that is not declared
+- `lib/app/src/embed.js`: `<block-embed>`, a player of `EMBEDS` laid by the page over the spot the block leaves (`mount`), or framed by the block in a web view
 - `demo/app`: a page with no build and no dependency; it imports the package's source from `/block/`
 - `plugin/skills/html-block`: the rules every block follows in every app. Updated with every change to the package
 

@@ -45,6 +45,9 @@ In the block:
 
 Outside a web page (a server that renders the document, a React Native web view), use the parts `mount` is made of: `parse`, `documentOf` and `serve`.
 
+
+Types come with the package (`src/*.d.ts`, written by hand next to the source: there is no build). A test checks that every export is declared.
+
 ## An app's own functions
 
 The package knows no app's functions. An app names the ones it lends and gives a function for each; the block gets them under the app's name, with the arguments as the app wrote them.
