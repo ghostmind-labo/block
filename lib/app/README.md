@@ -84,29 +84,44 @@ const served = serve(host, webviewTarget((js) => webRef.current?.injectJavaScrip
 <WebView
   source={{ html: page }}
   onMessage={(event) => served.receive(fromWebview(event.nativeEvent.data))}
-  onShouldStartLoadWithRequest={(request) => request.url === "about:blank"}  // the block goes nowhere
+  onShouldStartLoadWithRequest={(request) => request.url === "about:blank" || !request.isTopFrame}  // the block goes nowhere; a player (frame-src) loads
 />
 ```
 
 - The same `handlers` as on the web, written once and used by both.
 - Bytes (a map tile) cross the text channel as base64 and are bytes again in the block.
-- What `PAGE_POLICY` is on a web page, the web view does here: it refuses every navigation after the first load.
+- What `PAGE_POLICY` is on a web page, the web view does here: it refuses every navigation of the block after the first load. A frame inside it is let through: the block's own policy (`WEBVIEW_POLICY`) lets it frame only the players of `EMBEDS`, and what a player frames is its own.
 
 ## The page around a block
 
 One thing is the page's to do, because nothing inside the frame can: close its own `frame-src`. A block's script may set its frame's `location` to an outside address, with whatever the block was lent written in that address. The frame's policy does not cover that; the page's does.
 
 ```html
-<meta http-equiv="Content-Security-Policy" content="frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="frame-src https://www.youtube-nocookie.com/embed/ https://www.youtube.com/embed/ https://player.vimeo.com/video/ https://open.spotify.com/embed/ https://embed.reddit.com/r/ https://www.instagram.com/p/ https://www.instagram.com/reel/">
 ```
 
-That is `PAGE_POLICY`. A frame written with `srcdoc` is not refused by it. An app that shows other frames (a video) lists them instead of `'none'`; what matters is that the list is closed.
+That is `PAGE_POLICY` (write it from the export, so it follows the package): the players of `EMBEDS`, which `mount` lays over a block (see Players), and nothing else. A frame written with `srcdoc` is not refused by it; a block that sends its own frame away can at most reach one of those players. An app that shows other frames of its own adds them; what matters is that the list is closed.
 
 Other things a page does for a block, all through `mount`:
 
 - `onLink(href)`: a link was clicked. The frame goes nowhere, so the app decides what opens.
 - `expand(true)`: the block takes the whole container (the screen) for a while, where it is. It scrolls inside itself, is told (`<html data-block-expanded>`), and passes Escape on (`onEscape`).
 - `scale(1.2)`: the reader's text size. The block is zoomed, not loaded again.
+
+## Players: YouTube, Vimeo, Spotify, Reddit, Instagram
+
+A block shows a video or a post with the address a person would share, the one a note's `::embed[…]` takes:
+
+```html
+<block-embed id="video" src="https://youtu.be/d6c6uIyieoo?t=90"></block-embed>
+<button onclick="document.querySelector('#video').seek(125)">2:05</button>
+```
+
+- The element is as wide as its room. A video keeps 16:9 (9:16 for a Short); Spotify, Reddit and Instagram have a height of their own, which `height="…"` changes.
+- `seek(seconds)`, `play()` and `pause()` move a YouTube or Vimeo player.
+- The sites are a closed list, `EMBEDS`, the same in every app; `embedOf(address)` says what an address becomes, or `null`. Any other address shows a line that says so. X is not on the list: its player draws nothing on its own, even straight in a page.
+- A player cannot run inside the block's frame: a frame nested there inherits its sandbox and has no origin of its own, and YouTube and Reddit refuse to play like that. So on a web page the block only leaves a spot and tells the page where it is; `mount` lays the site's player over it, in a frame of the page's own, clipped to the block's frame. The page turns the address into the player's itself, so the block never chooses what is framed beyond an address of the list, and reaches the player only through seek, play and pause. The sandbox and the block's policy are unchanged: the block still frames nothing.
+- In a native app's web view, the document is not sandboxed: the block frames the player itself (`WEBVIEW_POLICY` lists the players in its `frame-src`).
 
 ## Libraries
 

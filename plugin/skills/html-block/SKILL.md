@@ -24,12 +24,34 @@ When the two disagree, the app's skill wins: it describes what that app runs tod
 
 ## The frame reaches nothing
 
-- **No network.** No `fetch`, no `<script src>`, no `<link>`, no remote font, video or css `url()`.
+- **No network.** No `fetch`, no `<script src>`, no `<link>`, no `<iframe>`, no remote font, video or css `url()`. A video or a post of one of five sites is the exception, written as below.
 - **A picture by address is written as it is:** `<img src="https://…">`. The app brings it into the block before it is shown (from @ghostmind-dev/block 0.5.0), so a link the person pastes shows. Only an `<img src>` written in the source is brought: an address a script makes at run time (`new Image()`, a css `url()`) is refused. Inline svg, a canvas or a `data:` address work too. Give the `<img>` a size or `max-width: 100%`, and an `alt`.
 - **No storage, no page.** No `localStorage`, no cookies, no access to the page around it, no `eval`.
 - **It cannot go anywhere.** A link does nothing by itself. The app decides what a link opens, and each app says which links it understands.
 
 Design for this; do not look for a way round it. What a block needs from outside, the app lends it.
+
+## Players: YouTube, Vimeo, Spotify, Reddit, Instagram
+
+From @ghostmind-dev/block 0.7.0, a block shows a video or a post with the address a person would share (the one a note's `::embed[…]` takes), in every app:
+
+```html
+<block-embed id="video" src="https://youtu.be/d6c6uIyieoo" title="Riemann Hypothesis - Numberphile"></block-embed>
+<nav><button data-at="125">2:05 the primes</button><button data-at="420">7:00 the zeta function</button></nav>
+<script>
+  const video = document.querySelector("#video");
+  document.querySelector("nav").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-at]");
+    if (b) { video.seek(Number(b.dataset.at)); video.play(); }
+  });
+</script>
+```
+
+- **Addresses that work:** YouTube (`youtu.be/…`, `youtube.com/watch?v=…`, `/shorts/…`, with `?t=90` or `?t=1m30s` to start there), Vimeo (`vimeo.com/123…`), Spotify (`open.spotify.com/track|album|playlist|episode|show|artist/…`), Reddit (`reddit.com/r/<sub>/comments/<id>/…`), Instagram (`instagram.com/p/…` or `/reel/…`). Nothing else plays, X included; another address shows a line that says so.
+- **Never an `<iframe>`**, even of these sites: the frame refuses it. Only `<block-embed>`.
+- **Size:** as wide as its room. A video keeps 16:9 (9:16 for a Short); Spotify, Reddit and Instagram have a height of their own, which `height="400"` changes. Put it in a box to make it narrower (`max-width`).
+- **Moving it:** `seek(seconds)`, `play()`, `pause()` on the element, for YouTube and Vimeo. The block cannot read the player (its time, its state).
+- On a web page the player is laid by the app over the spot the block leaves, so nothing of the block can be drawn over it: no caption or button on top of a video, put them beside it.
 
 ## What the app lends
 
